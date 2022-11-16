@@ -193,61 +193,30 @@ rating_clean <- animerating_raw %>%
 
 ## Explore
 
+
+## Machine Learning Techniques
+
 ### User recommendation
 
 
 
 
+### Predicting Anime drop rates
 
 
 
 
-```{r, clusters}
+
+### Clustering and PCA
+
+```{r, prepare data for clustering}
 #### focus only on tasting points and so ignore geographical coordinates
 animelist_clean_genres<- animelist_clean %>% select(genre_action : genre_yuri)
 #### scale data: By scaling we substract the average value of a column from each observation and divide each observation by the standard deviation of the column it belongs to
 animelist_clean_genres<-data.frame(scale(animelist_clean_genres))
-
 ```
 
-```{r prepare-data2, message=FALSE, warning=FALSE}
-library(factoextra)
 
-model_kmeans_2clusters<-eclust(animelist_clean_genres, "kmeans", k = 2,nstart = 50, graph = FALSE)
-
-#Let's check the components of this object.
-summary(model_kmeans_2clusters)
-
-#Size of the clusters
-
-model_kmeans_2clusters$size
-```
-
-```{r prepare-cluster centers, message=FALSE, warning=FALSE}
-
-#Plot centers for k=2
-
-#First generate a new data frame with cluster centers and cluster numbers
-cluster_centers<-data.frame(cluster=as.factor(c(1:2)),model_kmeans_2clusters$centers)
-
-#transpose this data frame
-cluster_centers_t<-cluster_centers %>% gather(variable,value,-cluster,factor_key = TRUE)
-
-#plot the centers
-graphkmeans_2clusters<-ggplot(cluster_centers_t, aes(x = variable, y = value))+  geom_line(aes(color =cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
-        axis.text.x = element_text(angle=45, hjust=1),)+ggtitle("K-means Centers k=2")
-
-graphkmeans_2clusters
-
-
-
-
-```
-
-```{r prepare-PCA, message=FALSE, warning=FALSE}
-
-fviz_cluster(model_kmeans_2clusters, whisky_tasting_notes, palette = "Set2", ggtheme = theme_minimal())
-```
 
 ```{r kmeans-elbow, message=FALSE, warning=FALSE}
 library(purrr) #a package for writing succinctfor loops
@@ -275,7 +244,6 @@ fviz_nbclust(animelist_clean_genres,kmeans, method = "wss")+
 ```
 
 ```{r kmeans-PCA number of clusters, message=FALSE, warning=FALSE}
-
 # eclust function (part of factoextra) makes it easier to visuliaze clustering results
 model_km2 <- eclust(animelist_clean_genres, "kmeans", k = 2,nstart = 50, graph = FALSE)
 model_km2$size
@@ -285,7 +253,8 @@ model_km4 <- eclust(animelist_clean_genres, "kmeans", k = 4,nstart = 50, graph =
 model_km4$size
 model_km5 <- eclust(animelist_clean_genres, "kmeans", k = 5,nstart = 50, graph = FALSE)
 model_km5$size
- 
+
+
 # plots to compare
 #I use the fviz_cluster function which is part of the`factoextra` library
 p1 <- fviz_cluster(model_km2, geom = "point", data = animelist_clean_genres) + ggtitle("k = 2")
@@ -294,10 +263,53 @@ p3 <- fviz_cluster(model_km4, geom = "point",  data = animelist_clean_genres) + 
 p4 <- fviz_cluster(model_km5, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 5")
 
 library(gridExtra)
-grid.arrange(p1, p2,p3,p4, nrow = 2)
+grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
-```{r ffg}
+```{r centre plots for k = 1:5}
+#Plot centers
+
+#Plot centers for k=2
+xa<-data.frame(cluster=as.factor(c(1:2)),model_km2$centers)
+xak2<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
+
+graphknn2<-ggplot(xak2, aes(x = variable, y = value))+  geom_line(aes(color =cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=45, hjust=1),legend.title=element_text(size=5),legend.text = element_text(size=5))+ggtitle("K-means Centers k=2")
+
+#Plot centers for k=3
+xa<-data.frame(cluster=as.factor(c(1:3)),model_km3$centers)
+xa3<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
+
+graphknn3<-ggplot(xa3, aes(x = variable, y = value))+  geom_line(aes(color =cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=45, hjust=1),legend.title=element_text(size=5),legend.text = element_text(size=5))+ggtitle("K-means Centers k=3")
+
+#Plot centers for k=4
+xa<-data.frame(cluster=as.factor(c(1:4)),model_km4$centers)
+
+xa4<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
+graphknn4<-ggplot(xa4, aes(x = variable, y = value))+  geom_line(aes(color = cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=45, hjust=1),legend.title=element_text(size=5),legend.text = element_text(size=5))+ggtitle("K-means Centers k=4")
+
+#Plot centers for k=5
+xa<-data.frame(cluster=as.factor(c(1:5)),model_km5$centers)
+
+xa5<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
+graphknn5<-ggplot(xa5, aes(x = variable, y = value))+  geom_line(aes(color = cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=45, hjust=1),legend.title=element_text(size=5),legend.text = element_text(size=5))+ggtitle("K-means Centers k=5")
+  
+model_km2$size
+model_km3$size
+model_km4$size
+model_km5$size
+
+
+grid.arrange(graphknn2, graphknn3,graphknn4,graphknn5, nrow = 2)
+```
+
+
+
+
+```{r silhouette plots}
 s2<-fviz_silhouette(model_km2)+ ggtitle(paste("k = 2", "avg sw=",format(round(model_km2$silinfo$avg.width,3))))
 s3<-fviz_silhouette(model_km3)+ ggtitle(paste("k = 3", "avg sw=",format(round(model_km3$silinfo$avg.width,3))))
 s4<-fviz_silhouette(model_km4)+ ggtitle(paste("k = 4", "avg sw=",format(round(model_km4$silinfo$avg.width,3))))
