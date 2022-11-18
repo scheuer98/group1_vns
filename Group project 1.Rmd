@@ -44,18 +44,31 @@ library(ggrepel)
 library(patchwork)
 library(gghighlight)
 library(skimr)
+
+library(rsample) # to split dataframe in training- & testing sets
+library(huxtable) # to get summary table of all models produced
+library(caret) # to train more advanced models (k-fold cross-validation, stepwise regression, LASSO)
+library(nnet) # to calculate the maximum value of a vector
+library(pROC) # to plot ROC curves
+library(MLmetrics) #for caret LASSO logistic regression
+library(DescTools)
+library(sampling)
+library(gbm)
+library(randomForest)
 ```
 
 # Introduction
 
 ## Load the data
 
+Dataset source: https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020
+
 ```{r, load_data, warning=FALSE, message=FALSE}
 animeinfo_raw <- read_csv(here::here("anime.csv")) %>%
   clean_names() # use janitor::clean_names()
 
-animerating_raw <- read_csv(here::here("animelist.csv")) %>%
-  clean_names() # use janitor::clean_names()
+# animerating_raw <- read_csv(here::here("animelist.csv")) %>%
+#   clean_names() # use janitor::clean_names()
 ```
 
 # ICE the data: Inspect, Clean, Explore
@@ -142,6 +155,7 @@ animelist_intermediate <- animeinfo_raw %>%
   
 glimpse(animelist_intermediate)
   
+
 ########################
 # Replace (creating binary columns) and remove multi-valued columns (genres, licensors, producers, studios)
 animelist_clean <- animelist_intermediate %>% 
@@ -177,8 +191,12 @@ animelist_clean <- animelist_intermediate %>%
   arrange(mal_id) #arrange by anime id for ease
   
 
-
+rm(animelist_intermediate)
 ```
+
+
+
+
 
 ### Clean Anime Ratings data
 
@@ -186,12 +204,50 @@ animelist_clean <- animelist_intermediate %>%
 # Store all unique anime IDs as list
 uniqueid <- unique(animelist_clean$mal_id)
 
-rating_clean <- animerating_raw %>% 
-  filter(anime_id %in% uniqueid)
+# rating_clean <- animerating_raw %>% 
+#   filter(anime_id %in% uniqueid)
 
 ```
 
 ## Explore
+
+### Exploring genre counts
+```{r create long animelist}
+# Create long data on genre
+animelist_clean_long <- animelist_clean %>% 
+  pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>% 
+  relocate(genre, .before = score) %>% 
+  filter(binary == 0) %>% 
+  select(c(mal_id : premier_year)) %>% 
+  mutate(id = row_number())%>% 
+  relocate(id, .before = mal_id) %>%
+  mutate(genre = str_extract(genre, '(?<=_).+')) %>% 
+  filter(genre != "unknown") #Remove unknown genres
+  
+  
+```
+
+
+```{r some basic genre count plots}
+count_by_genre <- animelist_clean_long %>% 
+  group_by(genre) %>% 
+  summarise(count = n()) %>% 
+  slice_max(count, n = 20) %>% 
+  mutate(genre = str_replace(genre, "_", " ")) %>% 
+  mutate(genre = str_to_title(genre))
+
+ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
+  geom_col() +
+  labs(
+    title = "<b>Top 20 Anime Genres</b>",
+    x = "Number of animes") +
+  theme_minimal() +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size = 14),
+        axis.title.y = element_blank(),
+        legend.position = "none"
+        )
+```
 
 
 ## Machine Learning Techniques
@@ -202,6 +258,69 @@ rating_clean <- animerating_raw %>%
 
 
 ### Predicting Anime drop rates
+```{r predicting drops}
+#split the data in testing and training.
+
+animelist_dropped <- animelist_clean %>% 
+  relocate(dropped, .before = mal_id) %>% 
+  select(c(dropped : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri))
+
+skim(animelist_dropped)
+
+
+unknown_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(x == "Unknown")))
+NA_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(is.na(x))))
+unknown_NA_count <- cbind(unknown_count, NA_count) %>% 
+  map_dbl(as.numeric())
+colnames(unknown_NA_count) <- c("unknown", "NA")
+
+overall_invalid_count <- unknown_NA_count %>% 
+  mutate(overall = unknown + NA)
+
+set.seed(1234)
+train_test_split <- initial_split(animelist_dropped, prop = 0.3)
+training <- training(train_test_split)
+testing <- testing(train_test_split)
+
+
+# we will look for the optimal lambda in this sequence (we will try 1000 different lambdas, feel free to try more if necessary)
+lambda_seq <- seq(0, 0.01, length = 1000)
+
+# lasso regression using k-fold cross validation to select the best lambda
+
+lasso <- train(
+ dropped ~ .,
+ data = training,
+ method = "glmnet",
+  preProc = c("center", "scale"), #This option standardizes the data before running the LASSO regression
+  trControl = control,
+  tuneGrid = expand.grid(alpha = 1, lambda = lambda_seq) #alpha=1 specifies to run a LASSO regression.
+  )
+
+# Model coefficients
+coef(lasso$finalModel, lasso$bestTune$lambda)
+
+# Best lambda
+lasso$bestTune$lambda
+
+# Count of how many coefficients are greater than zero and how many are equal to zero
+
+sum(coef(lasso$finalModel, lasso$bestTune$lambda)!=0)
+sum(coef(lasso$finalModel, lasso$bestTune$lambda)==0)
+
+# Make predictions
+predictions <- predict(lasso,testing)
+
+# Model prediction performance
+
+data.frame(
+  RMSE = RMSE(predictions, testing$int_rate),
+  Rsquare = R2(predictions, testing$int_rate)
+)
+
+
+
+```
 
 
 
