@@ -207,8 +207,7 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 ## Explore
 
-
-```{r}
+```{r watchtime  by genre}
 watchtime_by_genre <- animelist_clean_long %>%
   dplyr::group_by(genre) %>% 
   dplyr::mutate(watch_time = sum(duration)) %>%
@@ -247,18 +246,6 @@ plot(plot3)
 
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 ### Exploring genre counts
 
@@ -306,7 +293,7 @@ ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
 
 ### Predicting Anime drop rates
 
-```{r predicting drops}
+```{r creating data set for LASSO}
 #split the data in testing and training.
 
 animelist_dropped <- animelist_clean %>% 
@@ -351,13 +338,11 @@ control <- trainControl (
     number=10,
     verboseIter=TRUE) #by setting this to true the model will report its progress after each estimation
 
+```
 
-model_lm<-lm(dropped~., training)
-predictions <- predict(model_lm,testing)
-
-
+```{r LASSO dropped on all}
 # lasso regression using k-fold cross validation to select the best lambda
-lasso <- train(
+lasso_dropped_all <- train(
  dropped ~ .,
  data = training,
  method = "glmnet",
@@ -367,36 +352,90 @@ lasso <- train(
   )
 
 # Model coefficients
-coef(lasso$finalModel, lasso$bestTune$lambda)
-nonzerocoef<-data.frame(as.matrix(coef(lasso$finalModel, lasso$bestTune$lambda)))
-
+nonzerocoef<-data.frame(as.matrix(coef(lasso_dropped_all$finalModel, lasso_dropped_all$bestTune$lambda)))
 
 # Best lambda
-lasso$bestTune$lambda
+lasso_dropped_all$bestTune$lambda
 
 # Count of how many coefficients are greater than zero and how many are equal to zero
-
-sum(coef(lasso$finalModel, lasso$bestTune$lambda)!=0)
-sum(coef(lasso$finalModel, lasso$bestTune$lambda)==0)
+sum(coef(lasso_dropped_all$finalModel, lasso_dropped_all$bestTune$lambda)!=0)
+sum(coef(lasso_dropped_all$finalModel, lasso_dropped_all$bestTune$lambda)==0)
 
 # Make predictions
-predictions <- predict(lasso,testing)
-a <- cbind(testing, predictions) %>% 
-  select(c(dropped, predictions))
+predictions_dropped_all <- predict(lasso_dropped_all,testing) %>% 
+  cbind(.,
+        testing %>% select(c(dropped))
+        ) 
 
-ggplot(a)+
-  geom_point(aes(x = dropped, y = predictions))
+colnames(predictions_dropped_all) <- c("predicted", "dropped")
+predictions_dropped_all <- predictions_dropped_all %>% 
+  mutate(error = predicted - dropped)
+
+ggplot(predictions_dropped_all)+
+  geom_point(aes(x = dropped, y = predicted))
 
 # Model prediction performance
-
 data.frame(
-  RMSE = RMSE(predictions, testing$dropped),
-  Rsquare = R2(predictions, testing$dropped)
+  RMSE = RMSE(predicted, testing$dropped),
+  Rsquare = R2(predicted, testing$dropped)
 )
+```
+
+### LASSO dropped on genres
+
+```{r LASSO dropped on genres}
+animelist_dropped_genres <- animelist_dropped %>% 
+  select(dropped, c(genre_action : genre_yuri))
+
+set.seed(1234)
+train_test_split <- initial_split(animelist_dropped_genres, prop = 0.7)
+training <- training(train_test_split)
+testing <- testing(train_test_split)
+
+
+# we will look for the optimal lambda in this sequence (we will try 1000 different lambdas, feel free to try more if necessary)
+lambda_seq <- seq(0, 0.01, length = 1000)
 
 
 
+# lasso regression using k-fold cross validation to select the best lambda
+lasso_dropped_genre <- train(
+ dropped ~ .,
+ data = training,
+ method = "glmnet",
+  preProc = c("center", "scale"), #This option standardizes the data before running the LASSO regression
+  trControl = control,
+  tuneGrid = expand.grid(alpha = 1, lambda = lambda_seq) #alpha=1 specifies to run a LASSO regression.
+  )
 
+# Model coefficients
+nonzerocoef<-data.frame(as.matrix(coef(lasso_dropped_genre$finalModel, lasso_dropped_genre$bestTune$lambda)))
+
+# Best lambda
+lasso_dropped_genre$bestTune$lambda
+
+# Count of how many coefficients are greater than zero and how many are equal to zero
+sum(coef(lasso_dropped_genre$finalModel, lasso_dropped_genre$bestTune$lambda)!=0)
+sum(coef(lasso_dropped_genre$finalModel, lasso_dropped_genre$bestTune$lambda)==0)
+
+# Make predictions
+predictions_dropped_genre <- predict(lasso_dropped_genre,testing) %>% 
+  cbind(.,
+        testing %>% select(c(dropped))
+        ) 
+
+colnames(predictions_dropped_genre) <- c("predicted", "dropped")
+predictions_dropped_genre <- predictions_dropped_genre %>% 
+  mutate(error = predicted - dropped)
+
+ggplot(predictions_dropped_genre)+
+  geom_point(aes(x = dropped, y = predicted))
+
+# Model prediction performance
+data.frame(
+  RMSE = RMSE(predicted, testing$dropped),
+  Rsquare = R2(predicted, testing$dropped)
+)
 
 ```
 
