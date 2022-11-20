@@ -61,7 +61,7 @@ library(randomForest)
 
 ## Load the data
 
-Dataset source: https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020
+Dataset source: <https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020>
 
 ```{r, load_data, warning=FALSE, message=FALSE}
 animeinfo_raw <- read_csv(here::here("anime.csv")) %>%
@@ -194,10 +194,6 @@ animelist_clean <- animelist_intermediate %>%
 rm(animelist_intermediate)
 ```
 
-
-
-
-
 ### Clean Anime Ratings data
 
 ```{r, clean anime ratings data, warning=FALSE}
@@ -211,30 +207,85 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 ## Explore
 
+
+```{r}
+watchtime_by_genre <- animelist_clean_long %>%
+  dplyr::group_by(genre) %>% 
+  dplyr::mutate(watch_time = sum(duration)) %>%
+  ungroup()
+  arrange(genre)
+  select(genre, duration, episodes, completed) %>% 
+  distinct(genre, .keep_all = TRUE) 
+  ungroup() %>% 
+  slice_max(watch_time, n = 20) %>% 
+  group_by_gen
+  
+  
+  
+  group_by(genre, type) %>% 
+  summarise(watch_time = mean(duration*episodes*completed)) %>% 
+  # group_by(genre) %>% 
+  # mutate(genre = fct_reorder(genre, watch_time)) %>% 
+  # ungroup() %>% 
+  # group_by_(genre, type) %>% 
+  ungroup() %>% 
+  slice_max(watch_time, n = 20) %>%
+  mutate(genre = str_replace(genre, "_", " ")) %>%
+  mutate(genre = str_to_title(genre))
+plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time, y = fct_reorder(genre, watch_time), fill = type)) +
+  geom_col() +
+  labs(
+    title = "20 most watched Anime genres by type",
+    x = "Watchtime of animes") +
+  theme_classic(base_family = "Times New Roman") +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size = 14),
+        axis.title.y = element_blank(),
+        ) +
+  scale_fill_manual(values = c('#0056a7', '#126cb6', '#2681c5', '#3a97d3', '#52ace0', '#6dc2ec', '#8bd7f5', '#aeecfc', '#d6ffff'))
+plot(plot3)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Exploring genre counts
+
 ```{r create long animelist}
 # Create long data on genre
 animelist_clean_long <- animelist_clean %>% 
   pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>% 
   relocate(genre, .before = score) %>% 
-  filter(binary == 0) %>% 
+  filter(binary == 1) %>% 
   select(c(mal_id : premier_year)) %>% 
   mutate(id = row_number())%>% 
   relocate(id, .before = mal_id) %>%
   mutate(genre = str_extract(genre, '(?<=_).+')) %>% 
   filter(genre != "unknown") #Remove unknown genres
+
   
   
 ```
-
 
 ```{r some basic genre count plots}
 count_by_genre <- animelist_clean_long %>% 
   group_by(genre) %>% 
   summarise(count = n()) %>% 
-  slice_max(count, n = 20) %>% 
+  # slice_max(count, n = 20) %>%
   mutate(genre = str_replace(genre, "_", " ")) %>% 
-  mutate(genre = str_to_title(genre))
+  mutate(genre = str_to_title(genre)) %>% 
+  arrange(count)
 
 ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
   geom_col() +
@@ -249,36 +300,43 @@ ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
         )
 ```
 
-
 ## Machine Learning Techniques
 
 ### User recommendation
 
-
-
-
 ### Predicting Anime drop rates
+
 ```{r predicting drops}
 #split the data in testing and training.
 
 animelist_dropped <- animelist_clean %>% 
   relocate(dropped, .before = mal_id) %>% 
-  select(c(dropped : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri))
+  select(dropped, c(score : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri)) %>% 
+  select(-c(premier_season, premier_year)) %>%  #Dropped premier beccause there are too many NAs/Unknowns
+  drop_na(.) %>% #Drop na values for analysis
+  filter(source != "Unknown") %>% 
+  filter(rating != "Unknown") %>% 
+  # levels(droplevels(animelist_dropped$source)) %>% 
+  select(-c(source)) %>%  #Drop source for convenience
+  select(-c(ranked, popularity)) #Drop ranked, popularity
 
 skim(animelist_dropped)
 
 
-unknown_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(x == "Unknown")))
+unknown_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(x == "Unknown"))) %>% 
+  rownames_to_column(., "name")
 NA_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(is.na(x))))
 unknown_NA_count <- cbind(unknown_count, NA_count) %>% 
-  map_dbl(as.numeric())
-colnames(unknown_NA_count) <- c("unknown", "NA")
+  # lapply(., function(x) as.numeric(x)) %>%
+  # as.data.frame(.) %>% 
+  mutate_all(~replace(., is.na(.), 0))
+colnames(unknown_NA_count) <- c("name", "unknown", "NA")
 
 overall_invalid_count <- unknown_NA_count %>% 
-  mutate(overall = unknown + NA)
+  mutate(overall = unknown + `NA`)
 
 set.seed(1234)
-train_test_split <- initial_split(animelist_dropped, prop = 0.3)
+train_test_split <- initial_split(animelist_dropped, prop = 0.7)
 training <- training(train_test_split)
 testing <- testing(train_test_split)
 
@@ -286,8 +344,19 @@ testing <- testing(train_test_split)
 # we will look for the optimal lambda in this sequence (we will try 1000 different lambdas, feel free to try more if necessary)
 lambda_seq <- seq(0, 0.01, length = 1000)
 
-# lasso regression using k-fold cross validation to select the best lambda
 
+#the method "cv" stands for cross validation. We re going to create 10 folds.  
+control <- trainControl (
+    method="cv",
+    number=10,
+    verboseIter=TRUE) #by setting this to true the model will report its progress after each estimation
+
+
+model_lm<-lm(dropped~., training)
+predictions <- predict(model_lm,testing)
+
+
+# lasso regression using k-fold cross validation to select the best lambda
 lasso <- train(
  dropped ~ .,
  data = training,
@@ -299,6 +368,8 @@ lasso <- train(
 
 # Model coefficients
 coef(lasso$finalModel, lasso$bestTune$lambda)
+nonzerocoef<-data.frame(as.matrix(coef(lasso$finalModel, lasso$bestTune$lambda)))
+
 
 # Best lambda
 lasso$bestTune$lambda
@@ -310,21 +381,24 @@ sum(coef(lasso$finalModel, lasso$bestTune$lambda)==0)
 
 # Make predictions
 predictions <- predict(lasso,testing)
+a <- cbind(testing, predictions) %>% 
+  select(c(dropped, predictions))
+
+ggplot(a)+
+  geom_point(aes(x = dropped, y = predictions))
 
 # Model prediction performance
 
 data.frame(
-  RMSE = RMSE(predictions, testing$int_rate),
-  Rsquare = R2(predictions, testing$int_rate)
+  RMSE = RMSE(predictions, testing$dropped),
+  Rsquare = R2(predictions, testing$dropped)
 )
 
 
 
+
+
 ```
-
-
-
-
 
 ### Clustering and PCA
 
@@ -334,8 +408,6 @@ animelist_clean_genres<- animelist_clean %>% select(genre_action : genre_yuri)
 #### scale data: By scaling we substract the average value of a column from each observation and divide each observation by the standard deviation of the column it belongs to
 animelist_clean_genres<-data.frame(scale(animelist_clean_genres))
 ```
-
-
 
 ```{r kmeans-elbow, message=FALSE, warning=FALSE}
 library(purrr) #a package for writing succinctfor loops
@@ -425,9 +497,6 @@ model_km5$size
 grid.arrange(graphknn2, graphknn3,graphknn4,graphknn5, nrow = 2)
 ```
 
-
-
-
 ```{r silhouette plots}
 s2<-fviz_silhouette(model_km2)+ ggtitle(paste("k = 2", "avg sw=",format(round(model_km2$silinfo$avg.width,3))))
 s3<-fviz_silhouette(model_km3)+ ggtitle(paste("k = 3", "avg sw=",format(round(model_km3$silinfo$avg.width,3))))
@@ -436,5 +505,3 @@ s5<-fviz_silhouette(model_km5)+ ggtitle(paste("k = 5", "avg sw=",format(round(mo
 grid.arrange(s2, s3,s4,s5, nrow = 2)
 
 ```
-
-
