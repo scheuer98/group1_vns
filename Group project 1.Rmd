@@ -407,10 +407,16 @@ rate_plot
 
 ```{r members boxplot}
 #Boxplot
+member_df <- animelist_clean_long %>%
+  dplyr::select(genre, members) %>%
+  group_by(genre) %>%
+  summarise(total=mean(members)) %>%
+  slice_max(total, n=10)
+  #rm.na(TRUE)
+
 most_members <- animelist_clean_long %>%
   filter(genre %in% member_df$genre)
 
-options(scipen=999)
 format(summary(member_df), big.mark = ",") # using big.mark to add commas
 
 ggplot(most_members, 
