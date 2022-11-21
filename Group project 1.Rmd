@@ -2,7 +2,6 @@
 title: "AM10 Group Project 1"
 author: "Group 1: Alex Scheuer, Dhruvi Mundra, Heng Jian Shun, Marta Wnek, Sharon Wenyu Xu, Xueying Liu"
 date: "`r Sys.Date()`"
-output: html_document
 output:
   html_document:
     theme: flatly
@@ -57,6 +56,7 @@ library(DescTools)
 library(sampling)
 library(gbm)
 library(factoextra)
+library(gridExtra)
 
 
 library(hrbrthemes)
@@ -680,10 +680,13 @@ ggplot(predictions_dropped_genre, aes(x = droprate, y = predicted))+
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
-    title = "<b>Predicted droprate on Actual droprate (Only genres as predictors)</b>",
-    x = "Actual droprate",
-    y = "Predicted droprate") +
-  theme_minimal() +
+  title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
+  <br><span style = 'font-size:12pt'>Only using genres as predictors",
+  x = "Actual droprate",
+  y = "Predicted droprate") +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
         legend.position = "none"
@@ -783,11 +786,13 @@ ggplot(predictions_score_all, aes(x = score, y = predicted))+
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
-    title = "<b>Predicted score on Actual score (All variables as predictors)</b>",
+    title = "<b>LASSO Regression: Predicted score on Actual score</b>
+    <br><span style = 'font-size:12pt'>All variables as predictors",
     x = "Actual score",
     y = "Predicted score",
     colour = "Type") +
-  theme_minimal() +
+  coord_equal() +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14)
         )
@@ -798,11 +803,12 @@ ggplot(predictions_score_all, aes(x = score, y = predicted))+
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
-    title = "<b>Predicted score on Actual score (All variables as predictors)</b>",
+    title = "<b>LASSO Regression: Predicted score on Actual score</b>
+    <br><span style = 'font-size:12pt'>All variables as predictors (Faceted)",
     x = "Actual score",
     y = "Predicted score") +
   facet_wrap(~type) +
-  theme_minimal() +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
         legend.position = "none"
@@ -867,10 +873,12 @@ ggplot(predictions_score_genre, aes(x = score, y = predicted))+
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
-    title = "<b>Predicted score on Actual score (Only genres as predictors)</b>",
+    title = "<b>LASSO Regression: Predicted score on Actual score</b>
+    <br><span style = 'font-size:12pt'>Using only genres as predictors",
     x = "Actual score",
     y = "Predicted score") +
-  theme_minimal() +
+  coord_equal() +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14)
         )
@@ -889,7 +897,6 @@ data.frame(
 ### Clustering and PCA
 
 ```{r, prepare data for clustering}
-#### focus only on tasting points and so ignore geographical coordinates
 animelist_clean_genres<- animelist_clean %>% dplyr::select(genre_action : genre_yuri)
 #### scale data: By scaling we substract the average value of a column from each observation and divide each observation by the standard deviation of the column it belongs to
 animelist_clean_genres<-data.frame(scale(animelist_clean_genres))
@@ -939,18 +946,15 @@ p2 <- fviz_cluster(model_km3, geom = "point",  data = animelist_clean_genres) + 
 p3 <- fviz_cluster(model_km4, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 4")
 p4 <- fviz_cluster(model_km5, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 5")
 
-library(gridExtra)
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
 ```{r centre plots for k = 1:5}
-#Plot centers
-
 #Plot centers for k=2
 xa<-data.frame(cluster=as.factor(c(1:2)),model_km2$centers)
-xak2<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
+xa2<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
 
-graphknn2<-ggplot(xak2, aes(x = variable, y = value))+  geom_line(aes(color =cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
+graphknn2<-ggplot(xa2, aes(x = variable, y = value))+  geom_line(aes(color =cluster,group = cluster), linetype = "dashed",size=1)+ geom_point(size=1,shape=4)+geom_hline(yintercept=0)+theme(text = element_text(size=10),
         axis.text.x = element_text(angle=45, hjust=1),legend.title=element_text(size=5),legend.text = element_text(size=5))+ggtitle("K-means Centers k=2")
 
 #Plot centers for k=3
@@ -979,63 +983,5 @@ model_km3$size
 model_km4$size
 model_km5$size
 
-
 grid.arrange(graphknn2, graphknn3,graphknn4,graphknn5, nrow = 2)
-```
-
-```{r silhouette plots}
-s2<-fviz_silhouette(model_km2)+ ggtitle(paste("k = 2", "avg sw=",format(round(model_km2$silinfo$avg.width,3))))
-s3<-fviz_silhouette(model_km3)+ ggtitle(paste("k = 3", "avg sw=",format(round(model_km3$silinfo$avg.width,3))))
-s4<-fviz_silhouette(model_km4)+ ggtitle(paste("k = 4", "avg sw=",format(round(model_km4$silinfo$avg.width,3))))
-s5<-fviz_silhouette(model_km5)+ ggtitle(paste("k = 5", "avg sw=",format(round(model_km5$silinfo$avg.width,3))))
-grid.arrange(s2, s3,s4,s5, nrow = 2)
-
-```
-
-### Create 10 top anime genre by production
-
-```{r top 10 anime genres dataset}
-top_10_genre <- animelist_clean_long %>% 
-  group_by(genre) %>% 
-  summarise(count = n()) %>% 
-  slice_max(count, n = 10) %>% 
-  arrange(count) %>% 
-  select(-count) %>% 
-  unlist()
-
-animelist_top10 <- animelist_clean_long %>% 
-  filter(genre %in% top_10_genre) %>% 
-  pivot_wider(names_from = genre, values_from = binary) %>%
-  mutate_at(vars(action:school), ~replace_na(.,0)) %>% 
-  select(action : school)
-
-
-model_km3 <- eclust(animelist_top10, "kmeans", k = 3,nstart = 50, graph = FALSE)
-p2 <- fviz_cluster(model_km3, geom = "point",  data = animelist_top10) + ggtitle("k = 3")
-p2
-```
-
-### Cluster on top 10 genres
-
-```{r cluster on top 10}
-# eclust function (part of factoextra) makes it easier to visuliaze clustering results
-model_km2 <- eclust(animelist_clean_genres, "kmeans", k = 2,nstart = 50, graph = FALSE)
-model_km2$size
-model_km3 <- eclust(animelist_clean_genres, "kmeans", k = 3,nstart = 50, graph = FALSE)
-model_km3$size
-model_km4 <- eclust(animelist_clean_genres, "kmeans", k = 4,nstart = 50, graph = FALSE)
-model_km4$size
-model_km5 <- eclust(animelist_clean_genres, "kmeans", k = 5,nstart = 50, graph = FALSE)
-model_km5$size
-
-
-# plots to compare
-#I use the fviz_cluster function which is part of the`factoextra` library
-p1 <- fviz_cluster(model_km2, geom = "point", data = animelist_clean_genres) + ggtitle("k = 2")
-p2 <- fviz_cluster(model_km3, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 3")
-p3 <- fviz_cluster(model_km4, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 4")
-p4 <- fviz_cluster(model_km5, geom = "point",  data = animelist_clean_genres) + ggtitle("k = 5")
-
-library(gridExtra)
-grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
