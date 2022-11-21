@@ -132,8 +132,8 @@ skimr::skim(animerating_raw)
 
 ```{r, clean anime list data, warning=FALSE}
 animelist_intermediate <- animeinfo_raw %>%
-  select(-c(english_name, japanese_name, ranked)) %>% #drop redundant columns and perfectly multicollinear column ranked %>% 
-  select(-c(score_10 : score_1)) %>% #drop redundant columns
+  dplyr::select(-c(english_name, japanese_name, ranked)) %>% #drop redundant columns and perfectly multicollinear column ranked %>% 
+  dplyr::select(-c(score_10 : score_1)) %>% #drop redundant columns
   dplyr::mutate(across(c(score, episodes), as.numeric)) %>% #convert to numeric
   drop_na(score) %>% #drop rows with "Unknown" scores
   dplyr::mutate(aired_from = str_split(aired, "to", simplify = T)[, 1]) %>% 
@@ -141,16 +141,16 @@ animelist_intermediate <- animeinfo_raw %>%
     aired_from = mdy(aired_from),
     aired_from_year = year(aired_from)
     ) %>% #cleaned aired_from and retain aired from year only
-  select(-c(aired, aired_from)) %>% #drop aired
-  mutate(droprate = 100*dropped/(dropped+watching+completed+on_hold)) %>% 
+  dplyr::select(-c(aired, aired_from)) %>% #drop aired
+  mutate(droprate = dropped/(dropped+watching+completed+on_hold)) %>% 
   mutate(
     duration_hour = str_extract(duration, "(\\d)+(?= hr)"),
     duration_hour = ifelse(is.na(duration_hour), 0, as.numeric(duration_hour)),
     duration_min = as.numeric(str_extract(duration, "(\\d)+(?= min)")),
     duration = (duration_hour * 60) + duration_min #cleaned duration - number of minutes
     ) %>%
-  select(-c(duration_hour, duration_min)) %>% #drop duration_hour and duration_min
-  select(-c(premiered)) #drop premiered
+  dplyr::select(-c(duration_hour, duration_min)) %>% #drop duration_hour and duration_min
+  dplyr::select(-c(premiered)) #drop premiered
   
 glimpse(animelist_intermediate)
   
@@ -186,7 +186,7 @@ animelist_clean <- animelist_intermediate %>%
               names_prefix = "studio_", names_repair = "universal",
               values_from = studio, values_fill = 0, values_fn = length) %>% #binary studios
   clean_names() %>% 
-  select(-c(genres, licensors, producers, studios)) %>%  #drop multivalue columns
+  dplyr::select(-c(genres, licensors, producers, studios)) %>%  #drop multivalue columns
   arrange(mal_id) #arrange by anime id for ease
   
 
@@ -203,62 +203,6 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 # rating_clean <- animerating_raw %>% 
 #   filter(anime_id %in% uniqueid)
-
-```
-
-```{r watchtime  by genre}
-
-# options(scipen=999)
-# 
-# aaa <- animelist_clean_long %>%
-#   drop_na(score, duration, episodes, completed) %>% 
-#   group_by(genre, type) %>% 
-#   mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
-#   mutate(avg_score = mean(score, na.rm = TRUE)) %>% 
-#   ungroup() %>%
-#   select(avg_score, type, genre, watch_time, duration, episodes, completed) %>% 
-#   distinct(genre, type, .keep_all = TRUE)
-# 
-# ggplot(aaa) +
-#   geom_point(aes(x = watch_time, y = avg_score, colour = type)) +
-#   facet_wrap(~type, scale = "free")
-
-# 
-# watchtime_by_genre <- animelist_clean_long %>%
-#   group_by(genre) %>% 
-#   mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
-#   ungroup() %>%
-#   select(score, type, watch_time, duration, episodes, completed) %>% 
-#   distinct(genre, .keep_all = TRUE) %>% 
-#   ungroup() %>% 
-#   slice_max(watch_time, n = 20) %>% 
-#   group_by_gen
-#   
-#   
-#   
-#   group_by(genre, type) %>% 
-#   summarise(watch_time = mean(duration*episodes*completed)) %>% 
-#   # group_by(genre) %>% 
-#   # mutate(genre = fct_reorder(genre, watch_time)) %>% 
-#   # ungroup() %>% 
-#   # group_by_(genre, type) %>% 
-#   ungroup() %>% 
-#   slice_max(watch_time, n = 20) %>%
-#   mutate(genre = str_replace(genre, "_", " ")) %>%
-#   mutate(genre = str_to_title(genre))
-# plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time, y = fct_reorder(genre, watch_time), fill = type)) +
-#   geom_col() +
-#   labs(
-#     title = "20 most watched Anime genres by type",
-#     x = "Watchtime of animes") +
-#   theme_classic(base_family = "Times New Roman") +
-#   theme(plot.title.position = "plot",
-#         plot.title = element_textbox_simple(size = 14),
-#         axis.title.y = element_blank(),
-#         ) +
-#   scale_fill_manual(values = c('#0056a7', '#126cb6', '#2681c5', '#3a97d3', '#52ace0', '#6dc2ec', '#8bd7f5', '#aeecfc', '#d6ffff'))
-# plot(plot3)
-
 
 ```
 
@@ -284,7 +228,10 @@ animelist_clean_long <- animelist_clean %>%
 #add a ggcor graph to test for correlation issues
 #include only the relevant variables that we intend to build a model on
 ggcorr_anime_data <- animelist_clean_long %>% 
-  dplyr::select(c(genre:droprate))
+  dplyr::select(c(genre:droprate)) %>% 
+  rename_with(~str_replace_all(.,'_', ' ')) %>% 
+  rename_with(str_to_title)
+  
 
 #plot the ggcor graphic
 ggcor_anime <- ggcorr(ggcorr_anime_data, geom = "blank", label = TRUE, hjust = 0.75) +
@@ -337,7 +284,6 @@ rm(count_by_genre)
 animelist_dropped <- animelist_clean %>% 
   relocate(droprate, .before = mal_id) %>% 
   dplyr::select(droprate, c(score : genre_yuri)) %>% 
-  dplyr::select(-c(watching : on_hold)) %>%  #Dropped watching to on hold because these were used to calculate droprates
   drop_na(.) %>% #Drop na values for analysis
   filter(source != "Unknown") %>% 
   filter(rating != "Unknown")
@@ -352,16 +298,17 @@ drop_plot <- ggplot(animelist_dropped,
   xlab("Score")+
   ylab("Number of movies dropped")+
   ggtitle("Anime movies dropped across different scores")+
+  labs(colour = "")+
   theme(axis.title = element_text(face="bold"))+
   theme(plot.title = element_text(face="bold"))+
   scale_fill_manual(values=c('#aeecfc', '#52ace0', '#0056a7'))+
-  theme_bw()
+  theme_classic(base_family = "Times New Roman")
                     
 drop_plot
 
 ```
 
-### Drop out vs scores (scaled)
+### Dropped vs scores (scaled)
 
 ```{r scaled and excluding outliers}
 #getting rid of outliers
@@ -374,10 +321,12 @@ drop_scaled <- ggplot(drop_scaled_df,
   xlab("Score")+
   ylab("Number of movies dropped")+
   ggtitle("Anime movies dropped across different scores")+
+  labs(colour = "'",
+       ) +
   theme(axis.title = element_text(face="bold"))+
   theme(plot.title = element_text(face="bold"))+
   scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks) +
-  theme_bw()+
+  theme_classic(base_family = "Times New Roman") +
   geom_vline(xintercept=5, linetype="dashed", colour="grey", lwd=1.5)+
   geom_vline(xintercept=9, linetype="dashed", colour="grey", lwd=1.5)
  #theme(legend.title = "No. Dropped")
@@ -389,17 +338,23 @@ drop_scaled
 
 ```{r droprate against score}
 #Drop Rate against Score
-ratingdropped <- animelist_clean_long %>% 
+scoredroprate <- animelist_clean_long %>% 
   group_by(name) %>%
-  summarise(rating = mean(score),
-            droprate = mean(100*dropped/(dropped+watching+completed+on_hold)))
+  summarise(avg_score = mean(score),
+            droprate = mean(dropped/(dropped+watching+completed+on_hold)))
 
-rate_plot <- ggplot(ratingdropped, 
-                    aes(x=rating, y=droprate, colour=droprate))+
+score_droprate_plot <- ggplot(scoredroprate, 
+                    aes(x=avg_score, y=droprate, colour=droprate))+
   geom_point()+
-  scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks)
+  scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks)+
+  xlab("Score of movie")+
+  ylab("Drop Rates of movies")+
+  labs(colour = "")+
+  scale_y_continuous(labels = scales::percent)+
+  ggtitle("Droprates of anime movies across different scores")+
+  theme_classic(base_family = "Times New Roman")
 
-rate_plot
+score_droprate_plot
 
 ```
 
@@ -415,7 +370,8 @@ member_df <- animelist_clean_long %>%
   #rm.na(TRUE)
 
 most_members <- animelist_clean_long %>%
-  filter(genre %in% member_df$genre)
+  filter(genre %in% member_df$genre) %>% 
+  mutate(genre = str_to_title(str_replace(genre, "_", " ")))
 
 format(summary(member_df), big.mark = ",") # using big.mark to add commas
 
@@ -426,29 +382,34 @@ ggplot(most_members,
   scale_colour_manual(values=c('#00429d', '#4167ac', '#668eba', '#8ab6c8', '#b4ded5', '#ffc964', '#f3956d', '#db6468', '#ba3656', '#93003a'))+
   labs(title="Members share across genres")+
   xlab("Genre")+
-  ylab("No. of members")
+  ylab("No. of members")+
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))+
+  guides(colour = FALSE)+
+  theme_classic(base_family = "Times New Roman")
 ```
 
 ### Ratings per genre and dropout rates per genre
 
 ```{r ratings per genre and dropout rates per genre}
 #Ratings per genre and drop out rate per genre
-ratingdropped_by_genre <- animelist_clean_long %>% 
+scoredropped_by_genre <- animelist_clean_long %>% 
   group_by(genre) %>% 
-  summarise(rating = mean(score),
+  summarise(score = mean(score),
             droprate = mean(100*dropped/(dropped+watching+completed+on_hold))) %>%
-  slice_max(rating, n = 20) %>%
-  mutate(genre = str_replace(genre, "_", " ")) %>% 
-  mutate(genre = str_to_title(genre))
+  slice_max(score, n = 20) %>%
+  mutate(genre = str_to_title(str_replace(genre, "_", " ")))
 
 library(HH) # -,,-
-plot2 <- likert(genre ~ ., ratingdropped_by_genre, main="The relationship between the rating and the droprate",
-       xlab="Rating vs. Droprate in %",
+
+plot2<-likert(genre ~ ., scoredropped_by_genre, main="The relationship between the score and the droprate",
+       xlab="Score vs. Droprate in %",
        ylab="",
        xlim=c(-10,10),
        scales=list(x=list(at=seq(-10,10,5),
-                          labels=c(seq(10,0,-5),seq(5,10,5)))))
-plot(plot2, legend.position="right") #cannot seem to get the legend to the right
+                          labels=c(seq(10,0,-5),"5%","10%"))))
+
+plot(plot2, legend.position = "right")
+
 
 rm(ratingdropped_by_genre)
 detach("package:HH", unload=TRUE)
@@ -497,7 +458,7 @@ plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time_genretype, y = fct
   geom_col() +
   labs(
     title = "20 most watched Anime genres by type",
-    x = "Watchtime of animes",
+    x = "Watchtime of animes (in minutes)",
     fill = "Type") +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
@@ -527,7 +488,7 @@ plot4 <- ggplot(rating_by_duration, aes(x = score, y = mean_duration)) +
   geom_smooth(aes(colour = type), method = "lm", se = FALSE, colour = '#0056a7') +
   xlim(0,10) +
   labs(
-    title = "An increase in animes' duration increases its rating",
+    title = "An increase in an anime's duration increases its rating",
     x = "Rating of animes") +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
@@ -627,11 +588,15 @@ ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
-    title = "<b>Predicted droprate on Actual droprate (All variables as predictors)</b>",
+    title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
+    <br><span style = 'font-size:12pt'>All variables as predictors",
     x = "Actual droprate",
     y = "Predicted droprate",
     colour = "Type") +
-  theme_minimal() +
+  coord_equal() +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14)
         )
@@ -643,11 +608,14 @@ ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   facet_wrap(~type, scales = "free") +
   labs(
-    title = "<b>Predicted droprate on Actual droprate (All variables as predictors)</b>",
+    title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
+    <br><span style = 'font-size:12pt'>All variables as predictors (Faceted)",
     x = "Actual droprate",
     y = "Predicted droprate",
     colour = "Type") +
-  theme_minimal() +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
         legend.position = "none"
