@@ -73,9 +73,6 @@ Dataset source: <https://www.kaggle.com/datasets/hernan4444/anime-recommendation
 ```{r, load_data, warning=FALSE, message=FALSE}
 animeinfo_raw <- read_csv(here::here("anime.csv")) %>%
   clean_names() # use janitor::clean_names()
-
-# animerating_raw <- read_csv(here::here("animelist.csv")) %>%
-#   clean_names() # use janitor::clean_names()
 ```
 
 # ICE the data: Inspect, Clean, Explore
@@ -93,18 +90,10 @@ glimpse(animeinfo_raw)
 skimr::skim(animeinfo_raw)
 
 # Check through each factor columns and inspect number of unique factors.
-unique(animelist$type)
-unique(animelist$source)
-unique(animelist$rating)
+unique(animeinfo_raw$type)
+unique(animeinfo_raw$source)
+unique(animeinfo_raw$rating)
 # These columns are fine - There are distinct categories for each
-
-```
-
-### Anime Ratings data
-
-```{r, Inspect anime ratings data}
-glimpse(animerating_raw)
-skimr::skim(animerating_raw)
 
 ```
 
@@ -195,16 +184,6 @@ rm(animelist_intermediate)
 
 ![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAaCAYAAADFTB7LAAAAa0lEQVR42u3OywnAIBBAwcXSUoCW5D11xDoNCBGNv0MOecJOBSOi1OZMsJ4dvFxEJ1OQnMxBarIKEpNNkJbsBknJYZCSnAYJyVVQziNig7/nZkFEbhTE5HpBVO4dxOXKIDL3BLG5BJ1T6rsbMfep2CaMN00AAAAASUVORK5CYII= "Run Current Chunk")
 
-### Clean Anime Ratings data
-
-```{r, clean anime ratings data, warning=FALSE}
-# Store all unique anime IDs as list
-uniqueid <- unique(animelist_clean$mal_id)
-
-# rating_clean <- animerating_raw %>% 
-#   filter(anime_id %in% uniqueid)
-
-```
 
 ### Create long data on genre
 
@@ -949,7 +928,7 @@ p4 <- fviz_cluster(model_km5, geom = "point",  data = animelist_clean_genres) + 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
-```{r centre plots for k = 1:5}
+```{r centre plots for k}
 #Plot centers for k=2
 xa<-data.frame(cluster=as.factor(c(1:2)),model_km2$centers)
 xa2<-xa %>% gather(variable,value,-cluster,factor_key = TRUE)
