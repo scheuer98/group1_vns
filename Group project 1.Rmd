@@ -44,6 +44,8 @@ library(ggrepel)
 library(patchwork)
 library(gghighlight)
 library(skimr)
+library(ggstream)
+library(pander)
 
 library(rsample) # to split dataframe in training- & testing sets
 library(huxtable) # to get summary table of all models produced
@@ -55,6 +57,13 @@ library(DescTools)
 library(sampling)
 library(gbm)
 library(factoextra)
+
+library(tmap)
+library(tmaptools)
+library(hrbrthemes)
+library(viridis)
+library(likert) #to have double sided bar charts
+library(HH) # -,,-
 ```
 
 # Introduction
@@ -125,8 +134,8 @@ skimr::skim(animerating_raw)
 
 ```{r, clean anime list data, warning=FALSE}
 animelist_intermediate <- animeinfo_raw %>%
-  select(-c(english_name, japanese_name)) %>% #drop redundant columns 
-  dplyr::mutate(across(c(score, episodes, ranked), as.numeric)) %>% #convert to numeric
+  select(-c(english_name, japanese_name, ranked)) %>% #drop redundant columns and perfectly multicollinear column ranked
+  dplyr::mutate(across(c(score, episodes), as.numeric)) %>% #convert to numeric
   dplyr::mutate(across(score_10:score_1, as.numeric)) %>% #convert to numeric
   drop_na(score) %>% #drop rows with "Unknown" scores
   
@@ -209,20 +218,20 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 ```{r watchtime  by genre}
 
-options(scipen=999)
-
-aaa <- animelist_clean_long %>%
-  drop_na(score, duration, episodes, completed) %>% 
-  group_by(genre, type) %>% 
-  mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
-  mutate(avg_score = mean(score, na.rm = TRUE)) %>% 
-  ungroup() %>%
-  select(avg_score, type, genre, watch_time, duration, episodes, completed) %>% 
-  distinct(genre, type, .keep_all = TRUE)
-
-ggplot(aaa) +
-  geom_point(aes(x = watch_time, y = avg_score, colour = type)) +
-  facet_wrap(~type, scale = "free")
+# options(scipen=999)
+# 
+# aaa <- animelist_clean_long %>%
+#   drop_na(score, duration, episodes, completed) %>% 
+#   group_by(genre, type) %>% 
+#   mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
+#   mutate(avg_score = mean(score, na.rm = TRUE)) %>% 
+#   ungroup() %>%
+#   select(avg_score, type, genre, watch_time, duration, episodes, completed) %>% 
+#   distinct(genre, type, .keep_all = TRUE)
+# 
+# ggplot(aaa) +
+#   geom_point(aes(x = watch_time, y = avg_score, colour = type)) +
+#   facet_wrap(~type, scale = "free")
 
 # 
 # watchtime_by_genre <- animelist_clean_long %>%
@@ -263,44 +272,93 @@ ggplot(aaa) +
 
 ```
 
-### Exploring genre counts
+# Create long data on genre
 
 ```{r create long animelist}
-# Create long data on genre
-animelist_clean_long <- animelist_clean %>% 
-  pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>% 
+animelist_clean_long <- animelist_clean %>%
+  pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>%
   relocate(genre, .before = score) %>% 
   filter(binary == 1) %>% 
   select(c(mal_id : premier_year), binary) %>% 
-  mutate(id = row_number())%>% 
+  mutate(id = row_number()) %>% 
   relocate(id, .before = mal_id) %>%
   mutate(genre = str_extract(genre, '(?<=_).+')) %>% 
   filter(genre != "unknown") #Remove unknown genres
-
-  
-  
 ```
 
-```{r some basic genre count plots}
+## Create correlation matrix
+
+```{r ggcorr plots}
+#add a ggcor graph to test for correlation issues
+#include only the relevant variables that we intend to build a model on
+ggcorr_anime_data <- animelist_clean_long %>% 
+  dplyr::select(genre, score, type, episodes, source, duration, rating, popularity, members, favorites, watching, dropped, completed, on_hold, plan_to_watch, aired_from_year)
+
+
+#plot the ggcor graphic
+ggcor_anime <- ggcorr(ggcorr_anime_data, geom = "blank", label = TRUE, hjust = 0.75) +
+  geom_point(size = 10, aes(color = coefficient > 0, alpha = abs(coefficient) > 0.5)) +
+  scale_alpha_manual(values = c("TRUE" = 0.25, "FALSE" = 0)) +
+  guides(color = FALSE, alpha = FALSE) +
+  labs(
+    title = "An overview of the correlations of our variables",
+    subtitle = "Slight correlations with the score and stronger correlations with the droprate are detectable",
+    caption = "Source ID"
+  ) +
+  theme(text = element_text(family = "Times New Roman"))
+
+ggcor_anime
+
+rm(ggcor_anime_data)
+
+
+```
+
+```{r anime movies per genre}
+#Most anime movies per genres
 count_by_genre <- animelist_clean_long %>% 
   group_by(genre) %>% 
   summarise(count = n()) %>% 
-  slice_max(count, n = 20) %>%
+  slice_max(count, n = 20) %>% 
   mutate(genre = str_replace(genre, "_", " ")) %>% 
-  mutate(genre = str_to_title(genre)) %>% 
-  arrange(count)
-
-ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
-  geom_col() +
+  mutate(genre = str_to_title(genre))
+plot1 <- ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
+  geom_col(fill= '#0056a7') +
   labs(
-    title = "<b>Top 20 Anime Genres</b>",
+    title = "Top 20 represented Anime Genres",
     x = "Number of animes") +
-  theme_minimal() +
+  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
         axis.title.y = element_blank(),
         legend.position = "none"
         )
+plot1
+rm(count_by_genre)
+
+
+```
+
+```{r some basic genre count plots}
+# count_by_genre <- animelist_clean_long %>% 
+#   group_by(genre) %>% 
+#   summarise(count = n()) %>% 
+#   slice_max(count, n = 20) %>%
+#   mutate(genre = str_replace(genre, "_", " ")) %>% 
+#   mutate(genre = str_to_title(genre)) %>% 
+#   arrange(count)
+# 
+# ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
+#   geom_col() +
+#   labs(
+#     title = "<b>Top 20 Anime Genres</b>",
+#     x = "Number of animes") +
+#   theme_minimal() +
+#   theme(plot.title.position = "plot",
+#         plot.title = element_textbox_simple(size = 14),
+#         axis.title.y = element_blank(),
+#         legend.position = "none"
+#         )
 ```
 
 ## Machine Learning Techniques
