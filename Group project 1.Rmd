@@ -295,11 +295,11 @@ ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
 
 ```{r creating data set for LASSO}
 #split the data in testing and training.
-
 animelist_dropped <- animelist_clean %>% 
   relocate(dropped, .before = mal_id) %>% 
   select(dropped, c(score : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri)) %>% 
   select(-c(premier_season, premier_year)) %>%  #Dropped premier beccause there are too many NAs/Unknowns
+  select(-c(watching : plan_to_watch)) %>% 
   drop_na(.) %>% #Drop na values for analysis
   filter(source != "Unknown") %>% 
   filter(rating != "Unknown") %>% 
@@ -366,21 +366,39 @@ sum(coef(lasso_dropped_all$finalModel, lasso_dropped_all$bestTune$lambda)==0)
 # Make predictions
 predictions_dropped_all <- predict(lasso_dropped_all,testing) %>% 
   cbind(.,
-        testing %>% select(c(dropped))
-        ) 
+        testing %>% select(c(dropped, type))
+        )
 
-colnames(predictions_dropped_all) <- c("predicted", "dropped")
+colnames(predictions_dropped_all) <- c("predicted", "dropped", "type")
 predictions_dropped_all <- predictions_dropped_all %>% 
   mutate(error = predicted - dropped)
 
+# Plot predictions
 ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
-  geom_point() +
-  geom_smooth(method = "lm", colour = "red", se = F) +
+  geom_point(aes(colour = type), alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
     title = "<b>Predicted dropped on Actual dropped (All variables as predictors)</b>",
     x = "Actual dropped",
-    y = "Predicted dropped") +
+    y = "Predicted dropped",
+    colour = "Type") +
+  theme_minimal() +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size = 14)
+        )
+
+# Plot predictions (faceted on type)
+ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
+  geom_point(aes(colour = type), alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_abline(intercept = 0, slope = 1, colour = "black") +
+  facet_wrap(~type, scales = "free") +
+  labs(
+    title = "<b>Predicted dropped on Actual dropped (All variables as predictors)</b>",
+    x = "Actual dropped",
+    y = "Predicted dropped",
+    colour = "Type") +
   theme_minimal() +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
@@ -410,8 +428,6 @@ testing <- testing(train_test_split)
 
 # we will look for the optimal lambda in this sequence (we will try 1000 different lambdas, feel free to try more if necessary)
 lambda_seq <- seq(0, 0.01, length = 1000)
-
-
 
 # lasso regression using k-fold cross validation to select the best lambda
 lasso_dropped_genre <- train(
@@ -444,8 +460,8 @@ predictions_dropped_genre <- predictions_dropped_genre %>%
   mutate(error = predicted - dropped)
 
 ggplot(predictions_dropped_genre, aes(x = dropped, y = predicted))+
-  geom_point() +
-  geom_smooth(method = "lm", colour = "red", se = F) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
     title = "<b>Predicted dropped on Actual dropped (Only genres as predictors)</b>",
@@ -539,21 +555,38 @@ sum(coef(lasso_score_all$finalModel, lasso_score_all$bestTune$lambda)==0)
 # Make predictions
 predictions_score_all <- predict(lasso_score_all,testing) %>% 
   cbind(.,
-        testing %>% select(c(score))
+        testing %>% select(c(score,type))
         ) 
 
-colnames(predictions_score_all) <- c("predicted", "score")
+colnames(predictions_score_all) <- c("predicted", "score", "type")
 predictions_score_all <- predictions_score_all %>% 
   mutate(error = predicted - score)
 
+#Plot prediction outcomes
 ggplot(predictions_score_all, aes(x = score, y = predicted))+
-  geom_point() +
-  geom_smooth(method = "lm", colour = "red", se = F) +
-  geom_abline(intercept = 0, slope = 1, colour = "black") +
+  geom_point(aes(colour = type), alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
+  labs(
+    title = "<b>Predicted score on Actual score (All variables as predictors)</b>",
+    x = "Actual score",
+    y = "Predicted score",
+    colour = "Type") +
+  theme_minimal() +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size = 14)
+        )
+
+#Plot prediction outcomes (faceted)
+ggplot(predictions_score_all, aes(x = score, y = predicted))+
+  geom_point(aes(alpha = 0.5, colour = type)) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
     title = "<b>Predicted score on Actual score (All variables as predictors)</b>",
     x = "Actual score",
     y = "Predicted score") +
+  facet_wrap(~type) +
   theme_minimal() +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
@@ -613,18 +646,18 @@ colnames(predictions_score_genre) <- c("predicted", "score")
 predictions_score_genre <- predictions_score_genre %>% 
   mutate(error = predicted - score)
 
+# Plot prediction outcomes
 ggplot(predictions_score_genre, aes(x = score, y = predicted))+
-  geom_point() +
-  geom_smooth(method = "lm", colour = "red", se = F) +
-  geom_abline(intercept = 0, slope = 1, colour = "black") +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
     title = "<b>Predicted score on Actual score (Only genres as predictors)</b>",
     x = "Actual score",
     y = "Predicted score") +
   theme_minimal() +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
-        legend.position = "none"
+        plot.title = element_textbox_simple(size = 14)
         )
 
 # Model prediction performance
