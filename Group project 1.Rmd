@@ -314,6 +314,8 @@ rm(ggcor_anime_data)
 
 ```
 
+### Anime movies per genre
+
 ```{r anime movies per genre}
 #Most anime movies per genres
 count_by_genre <- animelist_clean_long %>% 
@@ -335,31 +337,49 @@ plot1 <- ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, cou
         )
 plot1
 rm(count_by_genre)
-
-
 ```
 
-```{r some basic genre count plots}
-# count_by_genre <- animelist_clean_long %>% 
-#   group_by(genre) %>% 
-#   summarise(count = n()) %>% 
-#   slice_max(count, n = 20) %>%
-#   mutate(genre = str_replace(genre, "_", " ")) %>% 
-#   mutate(genre = str_to_title(genre)) %>% 
-#   arrange(count)
-# 
-# ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
+### 
+Ratings per genre and dropout rates per genre
+
+```{r ratings per genre and dropout rates per genre}
+#Ratings per genre and drop out rate per genre
+ratingdropped_by_genre <- animelist_clean_long %>% 
+  group_by(genre) %>% 
+  summarise(rating = mean(score),
+            droprate = mean(100*dropped/(dropped+watching+completed+on_hold))) %>%
+  slice_max(rating, n = 20) %>%
+  mutate(genre = str_replace(genre, "_", " ")) %>% 
+  mutate(genre = str_to_title(genre))
+
+plot2 <- likert(genre ~ ., ratingdropped_by_genre, main="The relationship between the rating and the droprate",
+       xlab="Rating vs. Droprate in %",
+       ylab="",
+       xlim=c(-10,10),
+       scales=list(x=list(at=seq(-10,10,5),
+                          labels=c(seq(10,0,-5),seq(5,10,5)))))
+plot(plot2, legend.position="right") #cannot seem to get the legend to the right
+rm(ratingdropped_by_genre)
+
+
+# plot2 <- ggplot(data = rating_by_genre, aes(x = rating, y = fct_reorder(genre, rating))) +
 #   geom_col() +
 #   labs(
-#     title = "<b>Top 20 Anime Genres</b>",
-#     x = "Number of animes") +
-#   theme_minimal() +
+#     title = "Top 20 average ratings per Anime Genres",
+#     x = "Rating of animes") +
+#   theme_classic(base_family = "Times New Roman") +
 #   theme(plot.title.position = "plot",
 #         plot.title = element_textbox_simple(size = 14),
 #         axis.title.y = element_blank(),
-#         legend.position = "none"
+#         legend.position = "none",
 #         )
+# plot(plot2)
+# rm(rating_by_genre)
+
+
 ```
+
+\
 
 ## Machine Learning Techniques
 
