@@ -30,6 +30,8 @@ knitr::opts_chunk$set(
 ```
 
 ```{r, load_libraries, include = FALSE}
+options(scipen = 999)
+
 library(tidyverse) # the usual stuff: dplyr, readr, and other goodies
 library(lubridate) # to handle dates
 library(GGally) # for correlation-scatter plot matrix
@@ -204,8 +206,6 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 ```
 
-## Explore
-
 ```{r watchtime  by genre}
 
 # options(scipen=999)
@@ -262,7 +262,7 @@ uniqueid <- unique(animelist_clean$mal_id)
 
 ```
 
-# Create long data on genre
+### Create long data on genre
 
 ```{r create long animelist}
 animelist_clean_long <- animelist_clean %>%
@@ -276,14 +276,15 @@ animelist_clean_long <- animelist_clean %>%
   filter(genre != "unknown") #Remove unknown genres
 ```
 
-## Create correlation matrix
+## Explore data
+
+### Create correlation matrix
 
 ```{r ggcorr plots}
 #add a ggcor graph to test for correlation issues
 #include only the relevant variables that we intend to build a model on
 ggcorr_anime_data <- animelist_clean_long %>% 
   dplyr::select(c(genre:droprate))
-
 
 #plot the ggcor graphic
 ggcor_anime <- ggcorr(ggcorr_anime_data, geom = "blank", label = TRUE, hjust = 0.75) +
@@ -325,11 +326,102 @@ plot1 <- ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, cou
         axis.title.y = element_blank(),
         legend.position = "none"
         )
+
 plot1
 rm(count_by_genre)
 ```
 
-### 
+### Drop out vs scores
+
+```{r drop out vs scores}
+animelist_dropped <- animelist_clean %>% 
+  relocate(droprate, .before = mal_id) %>% 
+  dplyr::select(droprate, c(score : genre_yuri)) %>% 
+  dplyr::select(-c(watching : on_hold)) %>%  #Dropped watching to on hold because these were used to calculate droprates
+  drop_na(.) %>% #Drop na values for analysis
+  filter(source != "Unknown") %>% 
+  filter(rating != "Unknown")
+
+
+breaks <- c(20000,50000,100000)
+
+drop_plot <- ggplot(animelist_dropped,
+                    aes(x=score, y=dropped, colour=dropped))+
+  geom_point()+
+  #geom_smooth()+
+  xlab("Score")+
+  ylab("Number of movies dropped")+
+  ggtitle("Anime movies dropped across different scores")+
+  theme(axis.title = element_text(face="bold"))+
+  theme(plot.title = element_text(face="bold"))+
+  scale_fill_manual(values=c('#aeecfc', '#52ace0', '#0056a7'))+
+  theme_bw()
+                    
+drop_plot
+
+```
+
+### Drop out vs scores (scaled)
+
+```{r scaled and excluding outliers}
+#getting rid of outliers
+drop_scaled_df <- animelist_dropped %>%
+  filter(dropped < 25000)
+
+drop_scaled <- ggplot(drop_scaled_df,
+                    aes(x=score, y=dropped, colour=dropped))+
+  geom_point()+
+  xlab("Score")+
+  ylab("Number of movies dropped")+
+  ggtitle("Anime movies dropped across different scores")+
+  theme(axis.title = element_text(face="bold"))+
+  theme(plot.title = element_text(face="bold"))+
+  scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks) +
+  theme_bw()+
+  geom_vline(xintercept=5, linetype="dashed", colour="grey", lwd=1.5)+
+  geom_vline(xintercept=9, linetype="dashed", colour="grey", lwd=1.5)
+ #theme(legend.title = "No. Dropped")
+                    
+drop_scaled
+```
+
+### Droprate against score
+
+```{r droprate against score}
+#Drop Rate against Score
+ratingdropped <- animelist_clean_long %>% 
+  group_by(name) %>%
+  summarise(rating = mean(score),
+            droprate = mean(100*dropped/(dropped+watching+completed+on_hold)))
+
+rate_plot <- ggplot(ratingdropped, 
+                    aes(x=rating, y=droprate, colour=droprate))+
+  geom_point()+
+  scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks)
+
+rate_plot
+
+```
+
+### Members boxplot
+
+```{r members boxplot}
+#Boxplot
+most_members <- animelist_clean_long %>%
+  filter(genre %in% member_df$genre)
+
+options(scipen=999)
+format(summary(member_df), big.mark = ",") # using big.mark to add commas
+
+ggplot(most_members, 
+       aes(x=genre, y=members, colour=genre))+
+  ylim(0,200000)+
+  geom_boxplot(width = 0.5, lwd=0.5, outlier.size=1, outlier.shape=16, notch=FALSE)+
+  scale_colour_manual(values=c('#00429d', '#4167ac', '#668eba', '#8ab6c8', '#b4ded5', '#ffc964', '#f3956d', '#db6468', '#ba3656', '#93003a'))+
+  labs(title="Members share across genres")+
+  xlab("Genre")+
+  ylab("No. of members")
+```
 
 ### Ratings per genre and dropout rates per genre
 
