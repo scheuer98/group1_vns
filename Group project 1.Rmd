@@ -602,21 +602,21 @@ sum(coef(lasso_dropped_genre$finalModel, lasso_dropped_genre$bestTune$lambda)==0
 # Make predictions
 predictions_dropped_genre <- predict(lasso_dropped_genre,testing) %>% 
   cbind(.,
-        testing %>% select(c(dropped))
+        testing %>% dplyr::select(c(droprate))
         ) 
 
-colnames(predictions_dropped_genre) <- c("predicted", "dropped")
+colnames(predictions_dropped_genre) <- c("predicted", "droprate")
 predictions_dropped_genre <- predictions_dropped_genre %>% 
-  mutate(error = predicted - dropped)
+  mutate(error = predicted - droprate)
 
-ggplot(predictions_dropped_genre, aes(x = dropped, y = predicted))+
+ggplot(predictions_dropped_genre, aes(x = droprate, y = predicted))+
   geom_point(alpha = 0.5) +
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
-    title = "<b>Predicted dropped on Actual dropped (Only genres as predictors)</b>",
-    x = "Actual dropped",
-    y = "Predicted dropped") +
+    title = "<b>Predicted droprate on Actual droprate (Only genres as predictors)</b>",
+    x = "Actual droprate",
+    y = "Predicted droprate") +
   theme_minimal() +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size = 14),
@@ -626,9 +626,9 @@ ggplot(predictions_dropped_genre, aes(x = dropped, y = predicted))+
 # Model prediction performance
 data.frame(
   RMSE = RMSE(predictions_dropped_genre$predicted,
-              predictions_dropped_genre$dropped),
+              predictions_dropped_genre$droprate),
   Rsquare = R2(predictions_dropped_genre$predicted,
-              predictions_dropped_genre$dropped)
+              predictions_dropped_genre$droprate)
   )
 
 ```
@@ -639,14 +639,13 @@ data.frame(
 #split the data in testing and training.
 
 animelist_score <- animelist_clean %>% 
-  select(c(score : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri)) %>% 
-  select(-c(premier_season, premier_year)) %>%  #Dropped premier beccause there are too many NAs/Unknowns
+  dplyr::select(c(score : genre_yuri)) %>% 
+  dplyr::select(-droprate) %>% 
   drop_na(.) %>% #Drop na values for analysis
   filter(source != "Unknown") %>% 
-  filter(rating != "Unknown") %>% 
+  filter(rating != "Unknown")
   # levels(droplevels(animelist_dropped$source)) %>% 
-  select(-c(source)) %>%  #Drop source for convenience
-  select(-c(ranked, popularity)) #Drop ranked, popularity
+
 
 skim(animelist_score)
 
@@ -705,7 +704,7 @@ sum(coef(lasso_score_all$finalModel, lasso_score_all$bestTune$lambda)==0)
 # Make predictions
 predictions_score_all <- predict(lasso_score_all,testing) %>% 
   cbind(.,
-        testing %>% select(c(score,type))
+        testing %>% dplyr::select(c(score,type))
         ) 
 
 colnames(predictions_score_all) <- c("predicted", "score", "type")
@@ -754,7 +753,7 @@ data.frame(
 
 ```{r LASSO score on genres}
 animelist_score_genres <- animelist_score %>% 
-  select(score, c(genre_action : genre_yuri))
+  dplyr::select(score, c(genre_action : genre_yuri))
 
 set.seed(1234)
 train_test_split <- initial_split(animelist_score_genres, prop = 0.7)
@@ -789,7 +788,7 @@ sum(coef(lasso_score_genre$finalModel, lasso_score_genre$bestTune$lambda)==0)
 # Make predictions
 predictions_score_genre <- predict(lasso_score_genre,testing) %>% 
   cbind(.,
-        testing %>% select(c(score))
+        testing %>% dplyr::select(c(score))
         ) 
 
 colnames(predictions_score_genre) <- c("predicted", "score")
@@ -825,7 +824,7 @@ data.frame(
 
 ```{r, prepare data for clustering}
 #### focus only on tasting points and so ignore geographical coordinates
-animelist_clean_genres<- animelist_clean %>% select(genre_action : genre_yuri)
+animelist_clean_genres<- animelist_clean %>% dplyr::select(genre_action : genre_yuri)
 #### scale data: By scaling we substract the average value of a column from each observation and divide each observation by the standard deviation of the column it belongs to
 animelist_clean_genres<-data.frame(scale(animelist_clean_genres))
 ```
