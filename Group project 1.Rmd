@@ -208,41 +208,57 @@ uniqueid <- unique(animelist_clean$mal_id)
 ## Explore
 
 ```{r watchtime  by genre}
-watchtime_by_genre <- animelist_clean_long %>%
-  dplyr::group_by(genre) %>% 
-  dplyr::mutate(watch_time = sum(duration)) %>%
-  ungroup()
-  arrange(genre)
-  select(genre, duration, episodes, completed) %>% 
-  distinct(genre, .keep_all = TRUE) 
-  ungroup() %>% 
-  slice_max(watch_time, n = 20) %>% 
-  group_by_gen
-  
-  
-  
+
+options(scipen=999)
+
+aaa <- animelist_clean_long %>%
+  drop_na(score, duration, episodes, completed) %>% 
   group_by(genre, type) %>% 
-  summarise(watch_time = mean(duration*episodes*completed)) %>% 
-  # group_by(genre) %>% 
-  # mutate(genre = fct_reorder(genre, watch_time)) %>% 
-  # ungroup() %>% 
-  # group_by_(genre, type) %>% 
-  ungroup() %>% 
-  slice_max(watch_time, n = 20) %>%
-  mutate(genre = str_replace(genre, "_", " ")) %>%
-  mutate(genre = str_to_title(genre))
-plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time, y = fct_reorder(genre, watch_time), fill = type)) +
-  geom_col() +
-  labs(
-    title = "20 most watched Anime genres by type",
-    x = "Watchtime of animes") +
-  theme_classic(base_family = "Times New Roman") +
-  theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
-        axis.title.y = element_blank(),
-        ) +
-  scale_fill_manual(values = c('#0056a7', '#126cb6', '#2681c5', '#3a97d3', '#52ace0', '#6dc2ec', '#8bd7f5', '#aeecfc', '#d6ffff'))
-plot(plot3)
+  mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
+  mutate(avg_score = mean(score, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  select(avg_score, type, genre, watch_time, duration, episodes, completed) %>% 
+  distinct(genre, type, .keep_all = TRUE)
+
+ggplot(aaa) +
+  geom_point(aes(x = watch_time, y = avg_score, colour = type)) +
+  facet_wrap(~type, scale = "free")
+
+# 
+# watchtime_by_genre <- animelist_clean_long %>%
+#   group_by(genre) %>% 
+#   mutate(watch_time = mean(duration * episodes * completed, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   select(score, type, watch_time, duration, episodes, completed) %>% 
+#   distinct(genre, .keep_all = TRUE) %>% 
+#   ungroup() %>% 
+#   slice_max(watch_time, n = 20) %>% 
+#   group_by_gen
+#   
+#   
+#   
+#   group_by(genre, type) %>% 
+#   summarise(watch_time = mean(duration*episodes*completed)) %>% 
+#   # group_by(genre) %>% 
+#   # mutate(genre = fct_reorder(genre, watch_time)) %>% 
+#   # ungroup() %>% 
+#   # group_by_(genre, type) %>% 
+#   ungroup() %>% 
+#   slice_max(watch_time, n = 20) %>%
+#   mutate(genre = str_replace(genre, "_", " ")) %>%
+#   mutate(genre = str_to_title(genre))
+# plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time, y = fct_reorder(genre, watch_time), fill = type)) +
+#   geom_col() +
+#   labs(
+#     title = "20 most watched Anime genres by type",
+#     x = "Watchtime of animes") +
+#   theme_classic(base_family = "Times New Roman") +
+#   theme(plot.title.position = "plot",
+#         plot.title = element_textbox_simple(size = 14),
+#         axis.title.y = element_blank(),
+#         ) +
+#   scale_fill_manual(values = c('#0056a7', '#126cb6', '#2681c5', '#3a97d3', '#52ace0', '#6dc2ec', '#8bd7f5', '#aeecfc', '#d6ffff'))
+# plot(plot3)
 
 
 ```
