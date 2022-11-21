@@ -44,8 +44,6 @@ library(ggrepel)
 library(patchwork)
 library(gghighlight)
 library(skimr)
-library(ggstream)
-library(pander)
 
 library(rsample) # to split dataframe in training- & testing sets
 library(huxtable) # to get summary table of all models produced
@@ -58,12 +56,10 @@ library(sampling)
 library(gbm)
 library(factoextra)
 
-library(tmap)
-library(tmaptools)
+
 library(hrbrthemes)
 library(viridis)
 library(likert) #to have double sided bar charts
-library(HH) # -,,-
 ```
 
 # Introduction
@@ -134,21 +130,17 @@ skimr::skim(animerating_raw)
 
 ```{r, clean anime list data, warning=FALSE}
 animelist_intermediate <- animeinfo_raw %>%
-  select(-c(english_name, japanese_name, ranked)) %>% #drop redundant columns and perfectly multicollinear column ranked
+  select(-c(english_name, japanese_name, ranked)) %>% #drop redundant columns and perfectly multicollinear column ranked %>% 
+  select(-c(score_10 : score_1)) %>% #drop redundant columns
   dplyr::mutate(across(c(score, episodes), as.numeric)) %>% #convert to numeric
-  dplyr::mutate(across(score_10:score_1, as.numeric)) %>% #convert to numeric
   drop_na(score) %>% #drop rows with "Unknown" scores
-  
   dplyr::mutate(aired_from = str_split(aired, "to", simplify = T)[, 1]) %>% 
   mutate(
     aired_from = mdy(aired_from),
-    aired_from_year = year(aired_from),
-    aired_from_month = month(aired_from),
-    aired_from_week = week(aired_from),
-    aired_from_day = day(aired_from)
-    ) %>% #cleaned aired_from
-  select(-c(aired)) %>% #drop aired 
-  
+    aired_from_year = year(aired_from)
+    ) %>% #cleaned aired_from and retain aired from year only
+  select(-c(aired, aired_from)) %>% #drop aired
+  mutate(droprate = 100*dropped/(dropped+watching+completed+on_hold)) %>% 
   mutate(
     duration_hour = str_extract(duration, "(\\d)+(?= hr)"),
     duration_hour = ifelse(is.na(duration_hour), 0, as.numeric(duration_hour)),
@@ -156,10 +148,6 @@ animelist_intermediate <- animeinfo_raw %>%
     duration = (duration_hour * 60) + duration_min #cleaned duration - number of minutes
     ) %>%
   select(-c(duration_hour, duration_min)) %>% #drop duration_hour and duration_min
-  
-  mutate(
-    premier_season = str_extract(premiered, "\\D+"),
-    premier_year = as.numeric(str_extract(premiered, "\\d+"))) %>% 
   select(-c(premiered)) #drop premiered
   
 glimpse(animelist_intermediate)
@@ -202,6 +190,8 @@ animelist_clean <- animelist_intermediate %>%
 
 rm(animelist_intermediate)
 ```
+
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAaCAYAAADFTB7LAAAAa0lEQVR42u3OywnAIBBAwcXSUoCW5D11xDoNCBGNv0MOecJOBSOi1OZMsJ4dvFxEJ1OQnMxBarIKEpNNkJbsBknJYZCSnAYJyVVQziNig7/nZkFEbhTE5HpBVO4dxOXKIDL3BLG5BJ1T6rsbMfep2CaMN00AAAAASUVORK5CYII= "Run Current Chunk")
 
 ### Clean Anime Ratings data
 
@@ -279,7 +269,7 @@ animelist_clean_long <- animelist_clean %>%
   pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>%
   relocate(genre, .before = score) %>% 
   filter(binary == 1) %>% 
-  select(c(mal_id : premier_year), binary) %>% 
+  select(c(mal_id : droprate), binary) %>% 
   mutate(id = row_number()) %>% 
   relocate(id, .before = mal_id) %>%
   mutate(genre = str_extract(genre, '(?<=_).+')) %>% 
@@ -292,7 +282,7 @@ animelist_clean_long <- animelist_clean %>%
 #add a ggcor graph to test for correlation issues
 #include only the relevant variables that we intend to build a model on
 ggcorr_anime_data <- animelist_clean_long %>% 
-  dplyr::select(genre, score, type, episodes, source, duration, rating, popularity, members, favorites, watching, dropped, completed, on_hold, plan_to_watch, aired_from_year)
+  dplyr::select(c(genre:droprate))
 
 
 #plot the ggcor graphic
@@ -340,7 +330,8 @@ rm(count_by_genre)
 ```
 
 ### 
-Ratings per genre and dropout rates per genre
+
+### Ratings per genre and dropout rates per genre
 
 ```{r ratings per genre and dropout rates per genre}
 #Ratings per genre and drop out rate per genre
@@ -352,6 +343,7 @@ ratingdropped_by_genre <- animelist_clean_long %>%
   mutate(genre = str_replace(genre, "_", " ")) %>% 
   mutate(genre = str_to_title(genre))
 
+library(HH) # -,,-
 plot2 <- likert(genre ~ ., ratingdropped_by_genre, main="The relationship between the rating and the droprate",
        xlab="Rating vs. Droprate in %",
        ylab="",
@@ -359,8 +351,9 @@ plot2 <- likert(genre ~ ., ratingdropped_by_genre, main="The relationship betwee
        scales=list(x=list(at=seq(-10,10,5),
                           labels=c(seq(10,0,-5),seq(5,10,5)))))
 plot(plot2, legend.position="right") #cannot seem to get the legend to the right
-rm(ratingdropped_by_genre)
 
+rm(ratingdropped_by_genre)
+detach("package:HH", unload=TRUE)
 
 # plot2 <- ggplot(data = rating_by_genre, aes(x = rating, y = fct_reorder(genre, rating))) +
 #   geom_col() +
@@ -376,10 +369,78 @@ rm(ratingdropped_by_genre)
 # plot(plot2)
 # rm(rating_by_genre)
 
+```
+
+### Watch time per genre
+
+```{r watch time per genre}
+#get the top 20 watched genre's
+most_watched <- animelist_clean_long %>% 
+  dplyr::select(genre,type,duration,episodes,completed) %>% 
+  group_by(genre) %>% 
+  summarise(counter = sum(duration*episodes*completed, na.rm = TRUE)) %>% 
+  top_n(counter, n = 20)
+
+#calculate
+watchtime_by_genre <- animelist_clean_long %>% 
+  filter(genre %in% most_watched$genre) %>% 
+  dplyr::select(genre,type,duration,episodes,completed) %>% 
+  group_by(genre) %>% 
+  mutate(watch_time_genre = sum(duration*episodes*completed, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  group_by(genre, type) %>% 
+  summarise(watch_time_genretype = sum(duration*episodes*completed, na.rm = TRUE),
+            watch_time_genre = mean(watch_time_genre)) %>%
+  # slice_max(watch_time_genre, n = 20) %>%
+  mutate(genre = str_replace(genre, "_", " ")) %>% 
+  mutate(genre = str_to_title(genre))
+  
+plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time_genretype, y = fct_reorder(genre, watch_time_genre), fill = type)) +
+  geom_col() +
+  labs(
+    title = "20 most watched Anime genres by type",
+    x = "Watchtime of animes",
+    fill = "Type") +
+  theme_classic(base_family = "Times New Roman") +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size = 14),
+        axis.title.y = element_blank(),
+        ) +
+  scale_fill_manual(values = c('#aeecfc', '#8bd7f5', '#52ace0', '#3a97d3' ,'#126cb6' , '#0056a7'))
+plot(plot3)
+rm(watchtime_by_genre)
+
 
 ```
 
-\
+### Rating per average length of a movie per type
+
+```{r rating per average length of a movie per type}
+#Rating per average length of a movie per type
+rating_by_duration <- animelist_clean_long %>% 
+  dplyr::select(type,duration,episodes, score) %>% 
+  mutate(total_duration = duration*episodes) %>% 
+  group_by(score, type) %>% 
+  summarise(mean_duration = mean(total_duration))
+
+plot4 <- ggplot(rating_by_duration, aes(x = score, y = mean_duration)) +
+  geom_point() +
+  facet_wrap(~ type, scales = "free") +
+  geom_smooth(aes(colour = type), method = "lm", se = FALSE, colour = '#0056a7') +
+  xlim(0,10) +
+  labs(
+    title = "An increase in animes' duration increases its rating",
+    x = "Rating of animes") +
+  theme_classic(base_family = "Times New Roman") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(size = 14),
+        axis.title.y = element_blank(),
+        legend.position = "none",
+        ) 
+plot4
+
+
+```
 
 ## Machine Learning Techniques
 
@@ -390,19 +451,14 @@ rm(ratingdropped_by_genre)
 ```{r creating data set for LASSO}
 #split the data in testing and training.
 animelist_dropped <- animelist_clean %>% 
-  relocate(dropped, .before = mal_id) %>% 
-  select(dropped, c(score : plan_to_watch), c(aired_from_year : premier_year), c(genre_action : genre_yuri)) %>% 
-  select(-c(premier_season, premier_year)) %>%  #Dropped premier beccause there are too many NAs/Unknowns
-  select(-c(watching : plan_to_watch)) %>% 
+  relocate(droprate, .before = mal_id) %>% 
+  dplyr::select(droprate, c(score : genre_yuri)) %>% 
+  dplyr::select(-c(watching : on_hold)) %>%  #Dropped watching to on hold because these were used to calculate droprates
   drop_na(.) %>% #Drop na values for analysis
   filter(source != "Unknown") %>% 
-  filter(rating != "Unknown") %>% 
-  # levels(droplevels(animelist_dropped$source)) %>% 
-  select(-c(source)) %>%  #Drop source for convenience
-  select(-c(ranked, popularity)) #Drop ranked, popularity
+  filter(rating != "Unknown")
 
 skim(animelist_dropped)
-
 
 unknown_count <- as.data.frame(sapply(animelist_dropped, function(x) sum(x == "Unknown"))) %>% 
   rownames_to_column(., "name")
@@ -434,12 +490,12 @@ control <- trainControl (
 
 ```
 
-### LASSO dropped on all
+### LASSO droprate on all
 
 ```{r LASSO dropped on all}
 # lasso regression using k-fold cross validation to select the best lambda
 lasso_dropped_all <- train(
- dropped ~ .,
+ droprate ~ .,
  data = training,
  method = "glmnet",
   preProc = c("center", "scale"), #This option standardizes the data before running the LASSO regression
@@ -460,22 +516,22 @@ sum(coef(lasso_dropped_all$finalModel, lasso_dropped_all$bestTune$lambda)==0)
 # Make predictions
 predictions_dropped_all <- predict(lasso_dropped_all,testing) %>% 
   cbind(.,
-        testing %>% select(c(dropped, type))
+        testing %>% dplyr::select(c(droprate, type))
         )
 
-colnames(predictions_dropped_all) <- c("predicted", "dropped", "type")
+colnames(predictions_dropped_all) <- c("predicted", "droprate", "type")
 predictions_dropped_all <- predictions_dropped_all %>% 
-  mutate(error = predicted - dropped)
+  mutate(error = predicted - droprate)
 
 # Plot predictions
-ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
+ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   geom_point(aes(colour = type), alpha = 0.5) +
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
-    title = "<b>Predicted dropped on Actual dropped (All variables as predictors)</b>",
-    x = "Actual dropped",
-    y = "Predicted dropped",
+    title = "<b>Predicted droprate on Actual droprate (All variables as predictors)</b>",
+    x = "Actual droprate",
+    y = "Predicted droprate",
     colour = "Type") +
   theme_minimal() +
   theme(plot.title.position = "plot",
@@ -483,15 +539,15 @@ ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
         )
 
 # Plot predictions (faceted on type)
-ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
+ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   geom_point(aes(colour = type), alpha = 0.5) +
   geom_smooth(method = "loess", colour = "red", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   facet_wrap(~type, scales = "free") +
   labs(
-    title = "<b>Predicted dropped on Actual dropped (All variables as predictors)</b>",
-    x = "Actual dropped",
-    y = "Predicted dropped",
+    title = "<b>Predicted droprate on Actual droprate (All variables as predictors)</b>",
+    x = "Actual droprate",
+    y = "Predicted droprate",
     colour = "Type") +
   theme_minimal() +
   theme(plot.title.position = "plot",
@@ -502,9 +558,9 @@ ggplot(predictions_dropped_all, aes(x = dropped, y = predicted))+
 # Model prediction performance
 data.frame(
   RMSE = RMSE(predictions_dropped_all$predicted,
-              predictions_dropped_all$dropped),
+              predictions_dropped_all$droprate),
   Rsquare = R2(predictions_dropped_all$predicted,
-              predictions_dropped_all$dropped)
+              predictions_dropped_all$droprate)
   )
 ```
 
@@ -512,7 +568,7 @@ data.frame(
 
 ```{r LASSO dropped on genres}
 animelist_dropped_genres <- animelist_dropped %>% 
-  select(dropped, c(genre_action : genre_yuri))
+  dplyr::select(droprate, c(genre_action : genre_yuri))
 
 set.seed(1234)
 train_test_split <- initial_split(animelist_dropped_genres, prop = 0.7)
@@ -525,7 +581,7 @@ lambda_seq <- seq(0, 0.01, length = 1000)
 
 # lasso regression using k-fold cross validation to select the best lambda
 lasso_dropped_genre <- train(
- dropped ~ .,
+ droprate ~ .,
  data = training,
  method = "glmnet",
   preProc = c("center", "scale"), #This option standardizes the data before running the LASSO regression
