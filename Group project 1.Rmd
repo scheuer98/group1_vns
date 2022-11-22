@@ -247,10 +247,28 @@ plot1 <- ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, cou
     title = "Top 20 represented Anime Genres",
     x = "Number of animes") +
   theme_classic(base_family = "Times New Roman") +
+  # theme(plot.title.position = "plot",
+  #       plot.title = element_textbox_simple(size = 14),
+  #       axis.title.y = element_blank(),
+  #       legend.position = "none"
+  #       ) +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10),
         legend.position = "none"
+        # panel.grid.major = element_line(linetype = "dotted"),
+        # panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
         )
 
 plot1
@@ -273,15 +291,32 @@ breaks <- c(20000,50000,100000)
 drop_plot <- ggplot(animelist_dropped,
                     aes(x=score, y=dropped, colour=dropped))+
   geom_point()+
-  #geom_smooth()+
-  xlab("Score")+
-  ylab("Number of movies dropped")+
-  ggtitle("Anime movies dropped across different scores")+
-  labs(colour = "")+
+  labs(title = "Animes dropped across different scores",
+       x = "Score",
+       y = "Number of animes dropped",
+       colour = "")+
   theme(axis.title = element_text(face="bold"))+
   theme(plot.title = element_text(face="bold"))+
   scale_fill_manual(values=c('#aeecfc', '#52ace0', '#0056a7'))+
-  theme_classic(base_family = "Times New Roman")
+  theme_classic(base_family = "Times New Roman") +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10),
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+        )
                     
 drop_plot
 
@@ -297,18 +332,34 @@ drop_scaled_df <- animelist_dropped %>%
 drop_scaled <- ggplot(drop_scaled_df,
                     aes(x=score, y=dropped, colour=dropped))+
   geom_point()+
-  xlab("Score")+
-  ylab("Number of movies dropped")+
-  ggtitle("Anime movies dropped across different scores")+
-  labs(colour = "'",
-       ) +
+  labs(title = "Number of users who dropped each anime<br><span style = 'font-size:12pt'>With respect to each anime's score",
+       x = "Score",
+       y = "Number of animes dropped",
+       colour = "'")+
   theme(axis.title = element_text(face="bold"))+
   theme(plot.title = element_text(face="bold"))+
   scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks) +
   theme_classic(base_family = "Times New Roman") +
   geom_vline(xintercept=5, linetype="dashed", colour="grey", lwd=1.5)+
-  geom_vline(xintercept=9, linetype="dashed", colour="grey", lwd=1.5)
- #theme(legend.title = "No. Dropped")
+  geom_vline(xintercept=9, linetype="dashed", colour="grey", lwd=1.5)+
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10)
+        # legend.position = "none"
+        # panel.grid.major = element_line(linetype = "dotted"),
+        # panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+        )
                     
 drop_scaled
 ```
@@ -326,12 +377,31 @@ score_droprate_plot <- ggplot(scoredroprate,
                     aes(x=avg_score, y=droprate, colour=droprate))+
   geom_point()+
   scale_colour_gradient2(low = "red", mid = "blue", high = "orange", midpoint = 0.1, breaks = breaks)+
-  xlab("Score of movie")+
-  ylab("Drop Rates of movies")+
-  labs(colour = "")+
+  labs(title = "Drop rates for each anime<br><span style = 'font-size:12pt'>With respect to each anime's score",
+       x = "Score of anime",
+       y = "Drop rates of anime",
+       colour = "")+
   scale_y_continuous(labels = scales::percent)+
-  ggtitle("Droprates of anime movies across different scores")+
-  theme_classic(base_family = "Times New Roman")
+  theme_classic(base_family = "Times New Roman")+
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10)
+        # legend.position = "none"
+        # panel.grid.major = element_line(linetype = "dotted"),
+        # panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+        )
+                    
 
 score_droprate_plot
 
@@ -359,12 +429,30 @@ ggplot(most_members,
   ylim(0,200000)+
   geom_boxplot(width = 0.5, lwd=0.5, outlier.size=1, outlier.shape=16, notch=FALSE)+
   scale_colour_manual(values=c('#00429d', '#4167ac', '#668eba', '#8ab6c8', '#b4ded5', '#ffc964', '#f3956d', '#db6468', '#ba3656', '#93003a'))+
-  labs(title="Members share across genres")+
-  xlab("Genre")+
-  ylab("No. of members")+
+  labs(title="Number of members across genres",
+       x = "Genre",
+       y = "No. of members")+
   scale_x_discrete(guide = guide_axis(n.dodge = 2))+
   guides(colour = FALSE)+
-  theme_classic(base_family = "Times New Roman")
+  theme_classic(base_family = "Times New Roman")+
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10),
+        legend.position = "none"
+        # panel.grid.major = element_line(linetype = "dotted"),
+        # panel.grid.minor = element_line(linetype = "blank"),
+        # #panel.grid.minor = element_blank(),
+        # #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+        )
 ```
 
 ### Ratings per genre and dropout rates per genre
@@ -439,12 +527,27 @@ plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time_genretype, y = fct
     title = "20 most watched Anime genres by type",
     x = "Watchtime of animes (in minutes)",
     fill = "Type") +
+  scale_fill_manual(values = c('#aeecfc', '#8bd7f5', '#52ace0', '#3a97d3' ,'#126cb6' , '#0056a7')) +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
-        ) +
-  scale_fill_manual(values = c('#aeecfc', '#8bd7f5', '#52ace0', '#3a97d3' ,'#126cb6' , '#0056a7'))
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10)
+        # legend.position = "none"
+        # panel.grid.major = element_line(linetype = "dotted"),
+        # panel.grid.minor = element_line(linetype = "blank"),
+        # #panel.grid.minor = element_blank(),
+        # #panel.grid.major = element_blank(),
+        # panel.grid.major.x = element_blank() ,
+        # panel.grid.major.y = element_line( size=.1, color="black"),
+        # text = element_text(family = "Times New Roman"),
+        # panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+        )
+
 plot(plot3)
 rm(watchtime_by_genre)
 
@@ -471,10 +574,23 @@ plot4 <- ggplot(rating_by_duration, aes(x = score, y = mean_duration)) +
     x = "Rating of animes") +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_text(size = 14),
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10),
         legend.position = "none",
-        ) 
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_blank() ,
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 10)
+        )
 plot4
 
 
@@ -577,7 +693,8 @@ ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   scale_y_continuous(labels = scales::percent) +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14)
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10)
         )
 
 # Plot predictions (faceted on type)
@@ -596,8 +713,19 @@ ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
   scale_y_continuous(labels = scales::percent) +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
-        legend.position = "none"
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10),
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_blank() ,
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 10)
         )
 
 # Model prediction performance
@@ -667,7 +795,8 @@ ggplot(predictions_dropped_genre, aes(x = droprate, y = predicted))+
   scale_y_continuous(labels = scales::percent) +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10),
         legend.position = "none"
         )
 
@@ -773,7 +902,8 @@ ggplot(predictions_score_all, aes(x = score, y = predicted))+
   coord_equal() +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14)
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10),
         )
 
 #Plot prediction outcomes (faceted)
@@ -786,11 +916,22 @@ ggplot(predictions_score_all, aes(x = score, y = predicted))+
     <br><span style = 'font-size:12pt'>All variables as predictors (Faceted)",
     x = "Actual score",
     y = "Predicted score") +
-  facet_wrap(~type) +
+  facet_wrap(~type, scale = "free") +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14),
-        legend.position = "none"
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10),
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_blank() ,
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 10)
         )
 
 # Model prediction performance
@@ -859,7 +1000,8 @@ ggplot(predictions_score_genre, aes(x = score, y = predicted))+
   coord_equal() +
   theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size = 14)
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10)
         )
 
 # Model prediction performance
