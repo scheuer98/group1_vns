@@ -1,4 +1,4 @@
----
+  ---
 title: "AM10 Group Project 1"
 author: "Group 1: Alex Scheuer, Dhruvi Mundra, Heng Jian Shun, Marta Wnek, Sharon Wenyu Xu, Xueying Liu"
 date: "`r Sys.Date()`"
@@ -71,7 +71,7 @@ library(likert) #to have double sided bar charts
 Dataset source: <https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020>
 
 ```{r, load_data, warning=FALSE, message=FALSE}
-animeinfo_raw <- read_csv(here::here("anime.csv")) %>%
+animeinfo_raw <- read_csv(here::here("Data/anime.csv")) %>%
   clean_names() # use janitor::clean_names()
 ```
 
@@ -192,7 +192,7 @@ animelist_clean_long <- animelist_clean %>%
   pivot_longer(cols = c(genre_action : genre_yuri), names_to = "genre", values_to = "binary") %>%
   relocate(genre, .before = score) %>% 
   filter(binary == 1) %>% 
-  select(c(mal_id : droprate), binary) %>% 
+  dplyr::select(c(mal_id : droprate), binary) %>% 
   mutate(id = row_number()) %>% 
   relocate(id, .before = mal_id) %>%
   mutate(genre = str_extract(genre, '(?<=_).+')) %>% 
@@ -210,23 +210,37 @@ ggcorr_anime_data <- animelist_clean_long %>%
   dplyr::select(c(genre:droprate)) %>% 
   rename_with(~str_replace_all(.,'_', ' ')) %>% 
   rename_with(str_to_title)
-  
 
 #plot the ggcor graphic
 ggcor_anime <- ggcorr(ggcorr_anime_data, geom = "blank", label = TRUE, hjust = 0.75) +
   geom_point(size = 10, aes(color = coefficient > 0, alpha = abs(coefficient) > 0.5)) +
   scale_alpha_manual(values = c("TRUE" = 0.25, "FALSE" = 0)) +
+  scale_colour_manual(values = c('#C8103E', '#001E62')) +
   guides(color = FALSE, alpha = FALSE) +
   labs(
-    title = "An overview of the correlations of our variables",
-    subtitle = "Slight correlations with the score and stronger correlations with the droprate are detectable",
-    caption = "Source ID"
+    title = "<b> Strong sign of multicollinearity between anime interaction variables </b><br>
+       <span style = 'font-size:12pt'> The <span style='color:#001E62'>positive</span> and <span style='color:#C8103E'>negative </span> correlations of the numerical variables of the Anime dataset</span><br>  ",
+    caption = "Source: Kaggle.com"
   ) +
-  theme(text = element_text(family = "Times New Roman"))
-
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text = element_text(size=10),
+        legend.position = "none",
+        #panel.grid.major = element_line(linetype = "dotted"),
+        #panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_blank() ,
+        #panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        )
 ggcor_anime
 
-rm(ggcor_anime_data)
+rm(ggcorr_anime_data)
 
 
 ```
@@ -241,33 +255,33 @@ count_by_genre <- animelist_clean_long %>%
   slice_max(count, n = 20) %>% 
   mutate(genre = str_replace(genre, "_", " ")) %>% 
   mutate(genre = str_to_title(genre))
+
 plot1 <- ggplot(data = count_by_genre, aes(x = count, y = fct_reorder(genre, count))) +
   geom_col(fill= '#0056a7') +
   labs(
     title = "Top 20 represented Anime Genres",
     x = "Number of animes",
-    caption = "Source: kaggle.com") +
-  # theme_classic(base_family = "Times New Roman") +
-  # # theme(plot.title.position = "plot",
-  # #       plot.title = element_textbox_simple(size = 14),
-  # #       axis.title.y = element_blank(),
-  # #       legend.position = "none"
-  # #       ) +
+    caption = "Source: Kaggle.com") +
+  labs(
+    title = "<b> Anime production is spread across many genres </b><br>
+       <span style = 'font-size:12pt'> Number of produced Animes per genre for 1918 until 2020 </span><br>  ",
+    caption = "Source: Kaggle.com"
+  ) +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
         axis.title.x = element_blank(),
         axis.text = element_text(size=10),
-        legend.position = "none"
+        legend.position = "none",
         panel.grid.major = element_line(linetype = "dotted"),
         panel.grid.minor = element_line(linetype = "blank"),
         #panel.grid.minor = element_blank(),
         #panel.grid.major = element_blank(),
-        # panel.grid.major.x = element_blank() ,
-        # panel.grid.major.y = element_line( size=.1, color="black"),
-        # text = element_text(family = "Times New Roman"),
-        # panel.background = element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        panel.grid.major.y = element_blank(),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
         # strip.background = element_blank(),
         # strip.text = element_text(face = "bold", size = 10)
         )
@@ -421,39 +435,54 @@ member_df <- animelist_clean_long %>%
 
 most_members <- animelist_clean_long %>%
   filter(genre %in% member_df$genre) %>% 
-  mutate(genre = str_to_title(str_replace(genre, "_", " ")))
+  mutate(genre = str_to_title(str_replace(genre, "_", " ")),
+         median = median(members)) 
+  
 
 format(summary(member_df), big.mark = ",") # using big.mark to add commas
 
-ggplot(most_members, 
+
+plotmembers <- ggplot(most_members, 
        aes(x=genre, y=members, colour=genre))+
   ylim(0,200000)+
-  geom_boxplot(width = 0.5, lwd=0.5, outlier.size=1, outlier.shape=16, notch=FALSE)+
-  scale_colour_manual(values=c('#00429d', '#4167ac', '#668eba', '#8ab6c8', '#b4ded5', '#ffc964', '#f3956d', '#db6468', '#ba3656', '#93003a'))+
-  labs(title="Number of members across genres",
-       x = "Genre",
-       y = "No. of members")+
+  geom_hline(yintercept = mean(most_members$median, na.rm = TRUE), colour = "#C8103E", linetype = "dotted", size = 0.75) +
+  geom_boxplot(width = 0.5, lwd=0.5, outlier.size=1, outlier.shape=16, notch=FALSE, colour = "#001E62")+
+#  scale_colour_manual(values=c('#00429d', '#4167ac', '#668eba', '#8ab6c8', '#b4ded5', '#ffc964', '#f3956d', '#db6468', '#ba3656', '#93003a'))+
+  labs(
+    title = "<b> There is no significant sign that Anime's members lean towards particular genres </b><br>
+       <span style = 'font-size:12pt'> Number of members across Anime genres for 1918 until 2020 </span><br>  ",
+    caption = "Source: Kaggle.com"
+  ) +
+  geom_label(
+    label="Median members is: 25249", 
+    x = 10, hjust = 0 , y = 25249,
+    label.padding = unit(0.25, "lines"),
+    label.size = 0.03,
+    color = "White",
+    fill="#C8103E") +
   scale_x_discrete(guide = guide_axis(n.dodge = 2))+
   guides(colour = FALSE)+
-  theme_classic(base_family = "Times New Roman")+
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
         axis.title.x = element_blank(),
         axis.text = element_text(size=10),
-        legend.position = "none"
-        # panel.grid.major = element_line(linetype = "dotted"),
-        # panel.grid.minor = element_line(linetype = "blank"),
-        # #panel.grid.minor = element_blank(),
-        # #panel.grid.major = element_blank(),
-        # panel.grid.major.x = element_blank() ,
-        # panel.grid.major.y = element_line( size=.1, color="black"),
-        # text = element_text(family = "Times New Roman"),
-        # panel.background = element_blank(),
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        # panel.grid.minor = element_blank(),
+        # panel.grid.major = element_blank(),
+        panel.grid.major.x = element_blank() ,
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
         # strip.background = element_blank(),
         # strip.text = element_text(face = "bold", size = 10)
-        )
+        ) +
+  theme(plot.margin = unit(c(1,2,1,1), "cm"))
+
+plotmembers
 ```
 
 ### Ratings per genre and dropout rates per genre
@@ -468,7 +497,6 @@ scoredropped_by_genre <- animelist_clean_long %>%
   mutate(genre = str_to_title(str_replace(genre, "_", " ")))
 
 library(HH) # -,,-
-
 plot2<-likert(genre ~ ., scoredropped_by_genre, main="The relationship between the score and the droprate",
        xlab="Score vs. Droprate in %",
        ylab="",
@@ -477,8 +505,6 @@ plot2<-likert(genre ~ ., scoredropped_by_genre, main="The relationship between t
                           labels=c(seq(10,0,-5),"5%","10%"))))
 
 plot(plot2, legend.position = "right")
-
-
 rm(ratingdropped_by_genre)
 detach("package:HH", unload=TRUE)
 
@@ -516,41 +542,43 @@ watchtime_by_genre <- animelist_clean_long %>%
   mutate(watch_time_genre = sum(duration*episodes*completed, na.rm = TRUE)) %>% 
   ungroup() %>% 
   group_by(genre, type) %>% 
-  summarise(watch_time_genretype = sum(duration*episodes*completed, na.rm = TRUE),
-            watch_time_genre = mean(watch_time_genre)) %>%
-  # slice_max(watch_time_genre, n = 20) %>%
+  summarise(watch_time_genretype = sum(duration*episodes*completed, na.rm = TRUE)/1e9,
+            watch_time_genre = mean(watch_time_genre)/1e9) %>%
   mutate(genre = str_replace(genre, "_", " ")) %>% 
   mutate(genre = str_to_title(genre))
   
 plot3 <- ggplot(data = watchtime_by_genre, aes(x = watch_time_genretype, y = fct_reorder(genre, watch_time_genre), fill = type)) +
   geom_col() +
   labs(
-    title = "20 most watched Anime genres by type",
-    x = "Watchtime of animes (in minutes)",
-    fill = "Type") +
-  scale_fill_manual(values = c('#aeecfc', '#8bd7f5', '#52ace0', '#3a97d3' ,'#126cb6' , '#0056a7')) +
-  theme_classic(base_family = "Times New Roman") +
+    title = "<b> The watchtime of Animes on TV dominates the industry </b><br>
+       <span style = 'font-size:12pt'> Watchtime length of Animes in billion minutes per genre from 1918 until 2020 </span><br>  ",
+    caption = "Source: Kaggle.com",
+    fill = "Type"
+  ) +
+  scale_fill_manual(values = c('#c8103e', '#a91946', '#8a1e4e', '#691f55', '#451f5b', '#001e62')) +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
+        plot.caption.position = "plot",
+        plot.caption = element_textbox_simple(size=12, vjust = 1),
         #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
         axis.title.y = element_blank(),
         axis.title.x = element_blank(),
-        axis.text = element_text(size=10)
+        axis.text = element_text(size=10),
         # legend.position = "none"
-        # panel.grid.major = element_line(linetype = "dotted"),
-        # panel.grid.minor = element_line(linetype = "blank"),
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
         # #panel.grid.minor = element_blank(),
         # #panel.grid.major = element_blank(),
-        # panel.grid.major.x = element_blank() ,
-        # panel.grid.major.y = element_line( size=.1, color="black"),
-        # text = element_text(family = "Times New Roman"),
-        # panel.background = element_blank(),
+        panel.grid.major.y = element_blank() ,
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank()
         # strip.background = element_blank(),
         # strip.text = element_text(face = "bold", size = 10)
         )
 
 plot(plot3)
-rm(watchtime_by_genre)
+rm(watchtime_by_genre, most_watched)
 
 
 ```
@@ -565,20 +593,26 @@ rating_by_duration <- animelist_clean_long %>%
   group_by(score, type) %>% 
   summarise(mean_duration = mean(total_duration))
 
-plot4 <- ggplot(rating_by_duration, aes(x = score, y = mean_duration)) +
+plot4 <- ggplot(rating_by_duration, aes(y = score, x = mean_duration)) +
   geom_point() +
   facet_wrap(~ type, scales = "free") +
-  geom_smooth(aes(colour = type), method = "lm", se = FALSE, colour = '#0056a7') +
-  xlim(0,10) +
+  geom_smooth(aes(colour = type), method = "lm", se = FALSE, colour = '#001e62') +
+  ylim(0,10) +
   labs(
-    title = "An increase in an anime's duration increases its rating",
-    x = "Rating of animes") +
-  theme_classic(base_family = "Times New Roman") +
+    title = "<b> An increase in an anime's duration increases its rating </b><br>
+       <span style = 'font-size:12pt'> Rating of animes based on the average runtime per type </span><br>  ",
+    caption = "Source: Kaggle.com"
+  ) +
+  xlab(
+    "Runtime in minutes"
+  ) +
+  ylab(
+    "Score"
+  ) +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
-        #axis.title.y = element_text(angle = 0, vjust = 0.5,size=14),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
+        axis.title.x = element_text(vjust = -0.3),
+        #axis.title.y = element_blank(),
         axis.text = element_text(size=10),
         legend.position = "none",
         panel.grid.major = element_line(linetype = "dotted"),
@@ -676,58 +710,74 @@ predictions_dropped_all <- predict(lasso_dropped_all,testing) %>%
 
 colnames(predictions_dropped_all) <- c("predicted", "droprate", "type")
 predictions_dropped_all <- predictions_dropped_all %>% 
-  mutate(error = predicted - droprate)
+  mutate(error = predicted - droprate) %>%
+  mutate(aboveall = case_when(predicted > droprate ~ "a",
+                          TRUE ~ "b")) %>% 
+  mutate(above = case_when(predicted > droprate ~ "b",
+                           predicted < droprate & type == "TV" ~ "a",
+                          TRUE ~ "c"))
 
 # Plot predictions
 ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
-  geom_point(aes(colour = type), alpha = 0.5) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_point(aes(colour = aboveall), alpha = 0.5) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
+  scale_colour_manual(values = c('#AFACC9', '#C8103E')) +
   labs(
-    title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
-    <br><span style = 'font-size:12pt'>All variables as predictors",
+    title = "<b>Model's droprate underestimation increases in actual droprates</b>
+    <br><span style = 'font-size:12pt'>LASSO regression's predicted droprates on actual droprates of animes from 1918-2020",
     x = "Actual droprate",
-    y = "Predicted droprate",
-    colour = "Type") +
+    y = "Predicted droprate") +
   coord_equal() +
   scale_x_continuous(labels = scales::percent) +
   scale_y_continuous(labels = scales::percent) +
-  theme_classic(base_family = "Times New Roman") +
-  theme(plot.title.position = "plot",
-        plot.title = element_textbox_simple(size=16, vjust = 10),
-        axis.text = element_text(size=10)
-        )
-
-# Plot predictions (faceted on type)
-ggplot(predictions_dropped_all, aes(x = droprate, y = predicted))+
-  geom_point(aes(colour = type), alpha = 0.5) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
-  geom_abline(intercept = 0, slope = 1, colour = "black") +
-  facet_wrap(~type, scales = "free") +
-  labs(
-    title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
-    <br><span style = 'font-size:12pt'>All variables as predictors (Faceted)",
-    x = "Actual droprate",
-    y = "Predicted droprate",
-    colour = "Type") +
-  scale_x_continuous(labels = scales::percent) +
-  scale_y_continuous(labels = scales::percent) +
-  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         axis.text = element_text(size=10),
-        legend.position = "none",
+        #legend.position = "none",
         panel.grid.major = element_line(linetype = "dotted"),
-        panel.grid.minor = element_line(linetype = "blank"),
+        panel.grid.minor = element_line(linetype = "dotted"),
         #panel.grid.minor = element_blank(),
         #panel.grid.major = element_blank(),
-        panel.grid.major.x = element_blank() ,
+        panel.grid.major.x = element_line( size=.1, color="black"),
         panel.grid.major.y = element_line( size=.1, color="black"),
         text = element_text(family = "Times New Roman"),
         panel.background = element_blank(),
         strip.background = element_blank(),
-        strip.text = element_text(face = "bold", size = 10)
+        strip.text = element_text(face = "bold", size = 10),
+        legend.position = "none"
         )
+
+# Plot predictions (faceted on type)
+ggplot(predictions_dropped_all, aes(x = droprate, y = predicted)) +
+  geom_point(aes(colour = above), alpha = 0.5) +
+  scale_colour_manual(values = c('#C8103E', '#AFACC9', '#001E62')) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
+  geom_abline(intercept = 0, slope = 1, colour = "black") +
+  labs(
+    title = "<b>TV droprate underestimations are relatively more severe than that of the other distribution channels</b>
+    <br><span style = 'font-size:12pt'>LASSO regression's predicted droprates on actual droprates of animes from 1918-2020, faceted by distribution type",
+    x = "Actual droprate",
+    y = "Predicted droprate") +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(plot.title.position = "plot",
+        plot.title = element_textbox_simple(size=16, vjust = 10),
+        axis.text = element_text(size=10),
+        #legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "dotted"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 10),
+        legend.position = "none"
+        ) +
+  facet_wrap(~type, scales = "free") 
 
 # Model prediction performance
 data.frame(
@@ -781,11 +831,14 @@ predictions_dropped_genre <- predict(lasso_dropped_genre,testing) %>%
 
 colnames(predictions_dropped_genre) <- c("predicted", "droprate")
 predictions_dropped_genre <- predictions_dropped_genre %>% 
-  mutate(error = predicted - droprate)
+  mutate(error = predicted - droprate) %>% 
+  mutate(aboveall = case_when(predicted > droprate ~ "a",
+                          TRUE ~ "b"))
 
 ggplot(predictions_dropped_genre, aes(x = droprate, y = predicted))+
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_point(aes(colour = aboveall), alpha = 0.5) +
+  scale_colour_manual(values = c('#AFACC9', '#C8103E')) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black") +
   labs(
   title = "<b>LASSO Regression: Predicted droprate on Actual droprate</b>
@@ -794,12 +847,21 @@ ggplot(predictions_dropped_genre, aes(x = droprate, y = predicted))+
   y = "Predicted droprate") +
   scale_x_continuous(labels = scales::percent) +
   scale_y_continuous(labels = scales::percent) +
-  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         axis.text = element_text(size=10),
-        legend.position = "none"
-        )
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "dotted"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
+  )
 
 # Model prediction performance
 data.frame(
@@ -887,38 +949,56 @@ predictions_score_all <- predict(lasso_score_all,testing) %>%
 
 colnames(predictions_score_all) <- c("predicted", "score", "type")
 predictions_score_all <- predictions_score_all %>% 
-  mutate(error = predicted - score)
+  mutate(error = predicted - score) %>% 
+  mutate(aboveall = case_when(predicted > score ~ "a",
+                          TRUE ~ "b")) %>% 
+  mutate(above = case_when(predicted < score ~ "b",
+                           predicted > score & type == "TV" ~ "a",
+                          TRUE ~ "c"))
 
 #Plot prediction outcomes
 ggplot(predictions_score_all, aes(x = score, y = predicted))+
-  geom_point(aes(colour = type), alpha = 0.5) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_point(aes(colour = aboveall), alpha = 0.5) +
+  scale_colour_manual(values = c('#C8103E', '#AFACC9')) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
-    title = "<b>LASSO Regression: Predicted score on Actual score</b>
-    <br><span style = 'font-size:12pt'>All variables as predictors",
+    title = "<b>Model's score overestimation is particularly severe for low actual scores</b>
+    <br><span style = 'font-size:12pt'>LASSO regression's predicted scores on actual scores of animes from 1918-2020",
     x = "Actual score",
-    y = "Predicted score",
-    colour = "Type") +
+    y = "Predicted score") +
   coord_equal() +
-  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         axis.text = element_text(size=10),
+        #legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "dotted"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        strip.background = element_blank(),
+        strip.text = element_text(face = "bold", size = 10),
+        legend.position = "none"
         )
+
 
 #Plot prediction outcomes (faceted)
 ggplot(predictions_score_all, aes(x = score, y = predicted))+
-  geom_point(aes(alpha = 0.5, colour = type)) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_point(aes(alpha = 0.5, colour = above)) +
+  scale_colour_manual(values = c('#C8103E', '#AFACC9', '#001E62')) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
-    title = "<b>LASSO Regression: Predicted score on Actual score</b>
-    <br><span style = 'font-size:12pt'>All variables as predictors (Faceted)",
+    title = "<b>Model's score overestimation is consistent across all distribution types</b>
+    <br><span style = 'font-size:12pt'>LASSO regression's predicted scores on actual scores of animes from 1918-2020, faceted by distribution type",
     x = "Actual score",
     y = "Predicted score") +
   facet_wrap(~type, scale = "free") +
-  theme_classic(base_family = "Times New Roman") +
+  #scale_colour_manual('#c8103e', '#a91946', '#8a1e4e', '#691f55', '#451f5b', '#001e62') +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
         axis.text = element_text(size=10),
@@ -927,7 +1007,7 @@ ggplot(predictions_score_all, aes(x = score, y = predicted))+
         panel.grid.minor = element_line(linetype = "blank"),
         #panel.grid.minor = element_blank(),
         #panel.grid.major = element_blank(),
-        panel.grid.major.x = element_blank() ,
+        panel.grid.major.x = element_line( size=.1, color="black"),
         panel.grid.major.y = element_line( size=.1, color="black"),
         text = element_text(family = "Times New Roman"),
         panel.background = element_blank(),
@@ -984,14 +1064,18 @@ predictions_score_genre <- predict(lasso_score_genre,testing) %>%
         testing %>% dplyr::select(c(score))
         ) 
 
+
 colnames(predictions_score_genre) <- c("predicted", "score")
 predictions_score_genre <- predictions_score_genre %>% 
-  mutate(error = predicted - score)
+  mutate(error = predicted - score) %>% 
+  mutate(aboveall = case_when(predicted > score ~ "a",
+                          TRUE ~ "b"))
 
 # Plot prediction outcomes
 ggplot(predictions_score_genre, aes(x = score, y = predicted))+
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "loess", colour = "red", se = F) +
+  geom_point(aes(colour = aboveall), alpha = 0.5) +
+  scale_colour_manual(values = c('#AFACC9', '#C8103E')) +
+  geom_smooth(method = "loess", colour = "#001E62", se = F) +
   geom_abline(intercept = 0, slope = 1, colour = "black", linetype = "dashed") +
   labs(
     title = "<b>LASSO Regression: Predicted score on Actual score</b>
@@ -999,10 +1083,20 @@ ggplot(predictions_score_genre, aes(x = score, y = predicted))+
     x = "Actual score",
     y = "Predicted score") +
   coord_equal() +
-  theme_classic(base_family = "Times New Roman") +
   theme(plot.title.position = "plot",
         plot.title = element_textbox_simple(size=16, vjust = 10),
-        axis.text = element_text(size=10)
+        axis.text = element_text(size=10),
+        legend.position = "none",
+        panel.grid.major = element_line(linetype = "dotted"),
+        panel.grid.minor = element_line(linetype = "blank"),
+        #panel.grid.minor = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="black"),
+        panel.grid.major.y = element_line( size=.1, color="black"),
+        text = element_text(family = "Times New Roman"),
+        panel.background = element_blank(),
+        # strip.background = element_blank(),
+        # strip.text = element_text(face = "bold", size = 10)
         )
 
 # Model prediction performance
